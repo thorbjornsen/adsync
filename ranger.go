@@ -146,6 +146,8 @@ func CreatePortalUser( client *http.Client, user VXPortalUser ) RangerError {
     req.Header.Set("Content-Type", "application/json")
     req.Header.Set("Accept", "application/json")
 
+    logger.Debug("Request: ", req)
+
     // Check if authorization creds have been configured
     if len(config.Ranger.User) != 0 && len(config.Ranger.Pass) != 0 {
         // Need to add authorization
@@ -219,6 +221,8 @@ func CreateUserInfo( client *http.Client, uginfo VXUserGroupInfo ) RangerError {
     req.Header.Set("Content-Type", "application/json")
     req.Header.Set("Accept", "application/json")
 
+    logger.Debug("Request: ", req)
+
     // Check if authorization creds have been configured
     if len(config.Ranger.User) != 0 && len(config.Ranger.Pass) != 0 {
         // Need to add authorization
@@ -278,6 +282,8 @@ func DeleteUser( client *http.Client, id int ) RangerError {
         return RangerError{ Err: err }
     }
 
+    logger.Debug("Request: ", req)
+
     // Check if authorization creds have been configured
     if len(config.Ranger.User) != 0 && len(config.Ranger.Pass) != 0 {
         // Need to add authorization
@@ -320,6 +326,8 @@ func GetGroups( client *http.Client ) (VXGroups,RangerError) {
 
     // Work with JSON, Ranger API defaults to XML
     req.Header.Set("Accept", "application/json")
+
+    logger.Debug("Request: ", req)
 
     // Check if authorization creds have been configured
     if len(config.Ranger.User) != 0 && len(config.Ranger.Pass) != 0 {
@@ -382,6 +390,8 @@ func DeleteGroup( client *http.Client, id int ) RangerError {
         return RangerError{ Err: err }
     }
 
+    logger.Debug("Request: ", req)
+
     // Check if authorization creds have been configured
     if len(config.Ranger.User) != 0 && len(config.Ranger.Pass) != 0 {
         // Need to add authorization
@@ -425,6 +435,8 @@ func GetGroupUsers( client *http.Client, name string ) (VXGroupUserInfo,RangerEr
 
     // Work with JSON, Ranger API defaults to XML
     req.Header.Set("Accept", "application/json")
+
+    logger.Debug("Request: ", req)
 
     // Check if authorization creds have been configured
     if len(config.Ranger.User) != 0 && len(config.Ranger.Pass) != 0 {
@@ -491,6 +503,8 @@ func DeleteGroupUser( client *http.Client, group string, user string ) RangerErr
     // Work with JSON, Ranger API defaults to XML
     req.Header.Set("Accept", "application/json")
 
+    logger.Debug("Request: ", req)
+
     // Check if authorization creds have been configured
     if len(config.Ranger.User) != 0 && len(config.Ranger.Pass) != 0 {
         // Need to add authorization
@@ -552,6 +566,8 @@ func CreateGroupInfo( client *http.Client, guinfo VXGroupUserInfo ) RangerError 
     req.Header.Set("Content-Type", "application/json")
     req.Header.Set("Accept", "application/json")
 
+    logger.Debug("Request: ", req)
+    
     // Check if authorization creds have been configured
     if len(config.Ranger.User) != 0 && len(config.Ranger.Pass) != 0 {
         // Need to add authorization

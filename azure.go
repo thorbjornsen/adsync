@@ -135,6 +135,8 @@ func (a *Azure) GetAuthorization() AzureError {
 
     req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
+    logger.Debug("Request: ", req)
+
     // Execute the request
     resp, err := a.client.Do(req)
 
@@ -189,7 +191,7 @@ func (a *Azure) GetUsers() AzureError {
     }
 
     logger.Debug("Request URL: ", url)
-
+    
     req, err := http.NewRequest(http.MethodGet, url, nil)
 
     if err != nil {
@@ -198,6 +200,9 @@ func (a *Azure) GetUsers() AzureError {
     }
 
     req.Header.Set("Accept", "application/json")
+
+    logger.Debug("Request: ", req)
+
     req.Header.Set("Authorization", "Bearer " + a.Auth.AccessToken)
 
     // Execute the request
@@ -253,25 +258,32 @@ func (a *Azure) GetGroups() AzureError {
 
     logger.Info("Fetching groups from Azure")
 
-    var url string
+    var rurl string
 
     if len(a.Groups.OdataNextLink) == 0 {
-        url = "https://graph.microsoft.com/v1.0/groups"
-    } else {
-        url = a.Groups.OdataNextLink
-    }
+        rurl = "https://graph.microsoft.com/v1.0/groups"
 
-    search := ""
+        search := ""
 
-    for i, filter := range config.Azure.GroupFilter {
-        if i == 0 {
-            search = `$search="displayName:` + filter + `"`
-        } else {
-            search += ` OR "displayName:` + filter +`"`
+        for i, filter := range config.Azure.GroupFilter {
+            if i == 0 {
+                search = `$search=` + `"displayName:` + filter + `"`
+                //search = `$search=` + `%22displayName:` + filter + "%22"
+            } else {
+                search += `%20OR%20"displayName:` + filter +`"`
+            }
         }
+
+        if len(search) > 0 {
+            rurl += "?" + search
+        }
+    } else {
+        rurl = a.Groups.OdataNextLink
     }
 
-    req, err := http.NewRequest(http.MethodGet, url, strings.NewReader(search))
+    logger.Debug("Request URL: ", rurl)
+
+    req, err := http.NewRequest(http.MethodGet, rurl, nil)
 
     if err != nil {
         logger.Debug("Problem creating the request: ", err)
@@ -281,6 +293,10 @@ func (a *Azure) GetGroups() AzureError {
     logger.Debug("Request: ", req)
 
     req.Header.Set("Accept", "application/json")
+    req.Header.Set("ConsistencyLevel", "eventual")
+
+    logger.Debug("Request: ", req)
+
     req.Header.Set("Authorization", "Bearer " + a.Auth.AccessToken)
 
     // Execute the request
@@ -354,6 +370,9 @@ func (a *Azure) GetGroupMembers(group string ) AzureError {
     }
 
     req.Header.Set("Accept", "application/json")
+
+    logger.Debug("Request URL: ", url)
+
     req.Header.Set("Authorization", "Bearer " + a.Auth.AccessToken)
 
     // Execute the request
