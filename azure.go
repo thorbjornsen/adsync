@@ -152,7 +152,7 @@ func (a *Azure) GetAuthorization() AzureError {
         }
     } ( resp.Body );
 
-    // Only accepted status is 200, even if user already existed
+    // Only accepted status is 200
     if resp.StatusCode != http.StatusOK {
         logger.Debug("Unexpected status code: ", resp.Status)
         return AzureError{ resp.Status, resp.StatusCode, errors.New("Expected " + strconv.Itoa(http.StatusOK)) }
@@ -191,7 +191,7 @@ func (a *Azure) GetUsers() AzureError {
     }
 
     logger.Debug("Request URL: ", url)
-    
+
     req, err := http.NewRequest(http.MethodGet, url, nil)
 
     if err != nil {
@@ -220,7 +220,7 @@ func (a *Azure) GetUsers() AzureError {
         }
     } ( resp.Body );
 
-    // Only accepted status is 200, even if user already existed
+    // Only accepted status is 200
     if resp.StatusCode != http.StatusOK {
         logger.Debug("Unexpected status code: ", resp.Status)
         return AzureError{ resp.Status, resp.StatusCode, errors.New("Expected " + strconv.Itoa(http.StatusOK)) }
@@ -268,7 +268,6 @@ func (a *Azure) GetGroups() AzureError {
         for i, filter := range config.Azure.GroupFilter {
             if i == 0 {
                 search = `$search=` + `"displayName:` + filter + `"`
-                //search = `$search=` + `%22displayName:` + filter + "%22"
             } else {
                 search += `%20OR%20"displayName:` + filter +`"`
             }
@@ -314,7 +313,7 @@ func (a *Azure) GetGroups() AzureError {
         }
     } ( resp.Body );
 
-    // Only accepted status is 200, even if user already existed
+    // Only accepted status is 200
     if resp.StatusCode != http.StatusOK {
         logger.Debug("Unexpected status code: ", resp.Status)
         return AzureError{ resp.Status, resp.StatusCode, errors.New("Expected " + strconv.Itoa(http.StatusOK)) }
@@ -390,7 +389,7 @@ func (a *Azure) GetGroupMembers(group string ) AzureError {
         }
     } ( resp.Body );
 
-    // Only accepted status is 200, even if user already existed
+    // Only accepted status is 200
     if resp.StatusCode != http.StatusOK {
         logger.Debug("Unexpected status code: ", resp.Status)
         return AzureError{ resp.Status, resp.StatusCode, errors.New("Expected " + strconv.Itoa(http.StatusOK)) }

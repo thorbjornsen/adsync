@@ -28,6 +28,8 @@ type RangerConfig struct {
     GroupUsersUri  string
     GroupInfoUri   string
     GroupUserUri   string
+
+    Headers        map[string]string
 }
 
 type GeneralConfig struct {
@@ -232,3 +234,12 @@ func NewConfig() Config {
 }
 
 var config = NewConfig()
+
+func RangerHeaders( headers map[string]string ) {
+    //
+    // Basically going to assume the caller sent in valid data
+    //
+
+    // Save the headers for use later on
+    config.Ranger.Headers = headers
+}

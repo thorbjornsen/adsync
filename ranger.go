@@ -142,6 +142,11 @@ func CreatePortalUser( client *http.Client, user VXPortalUser ) RangerError {
         return RangerError{ Err: err }
     }
 
+    // Add any user-supplied headers
+    for key, value := range config.Ranger.Headers {
+        req.Header.Set( key, value )
+    }
+
     // Work with JSON, Ranger API defaults to XML
     req.Header.Set("Content-Type", "application/json")
     req.Header.Set("Accept", "application/json")
@@ -217,6 +222,11 @@ func CreateUserInfo( client *http.Client, uginfo VXUserGroupInfo ) RangerError {
         return RangerError{ Err: err }
     }
 
+    // Add any user-supplied headers
+    for key, value := range config.Ranger.Headers {
+        req.Header.Set( key, value )
+    }
+
     // Work with JSON, Ranger API defaults to XML
     req.Header.Set("Content-Type", "application/json")
     req.Header.Set("Accept", "application/json")
@@ -282,6 +292,11 @@ func DeleteUser( client *http.Client, id int ) RangerError {
         return RangerError{ Err: err }
     }
 
+    // Add any user-supplied headers
+    for key, value := range config.Ranger.Headers {
+        req.Header.Set( key, value )
+    }
+
     logger.Debug("Request: ", req)
 
     // Check if authorization creds have been configured
@@ -322,6 +337,11 @@ func GetGroups( client *http.Client ) (VXGroups,RangerError) {
     if err != nil {
         logger.Debug("Problem creating the request: ", err)
         return VXGroups{}, RangerError{ Err: err }
+    }
+
+    // Add any user-supplied headers
+    for key, value := range config.Ranger.Headers {
+        req.Header.Set( key, value )
     }
 
     // Work with JSON, Ranger API defaults to XML
@@ -390,6 +410,11 @@ func DeleteGroup( client *http.Client, id int ) RangerError {
         return RangerError{ Err: err }
     }
 
+    // Add any user-supplied headers
+    for key, value := range config.Ranger.Headers {
+        req.Header.Set( key, value )
+    }
+
     logger.Debug("Request: ", req)
 
     // Check if authorization creds have been configured
@@ -431,6 +456,11 @@ func GetGroupUsers( client *http.Client, name string ) (VXGroupUserInfo,RangerEr
     if err != nil {
         logger.Debug("Problem creating the request: ", err)
         return VXGroupUserInfo{}, RangerError{ Err: err }
+    }
+
+    // Add any user-supplied headers
+    for key, value := range config.Ranger.Headers {
+        req.Header.Set( key, value )
     }
 
     // Work with JSON, Ranger API defaults to XML
@@ -500,6 +530,11 @@ func DeleteGroupUser( client *http.Client, group string, user string ) RangerErr
         return RangerError{ Err: err }
     }
 
+    // Add any user-supplied headers
+    for key, value := range config.Ranger.Headers {
+        req.Header.Set( key, value )
+    }
+
     // Work with JSON, Ranger API defaults to XML
     req.Header.Set("Accept", "application/json")
 
@@ -562,12 +597,17 @@ func CreateGroupInfo( client *http.Client, guinfo VXGroupUserInfo ) RangerError 
         return RangerError{ Err: err }
     }
 
+    // Add any user-supplied headers
+    for key, value := range config.Ranger.Headers {
+        req.Header.Set( key, value )
+    }
+
     // Work with JSON, Ranger API defaults to XML
     req.Header.Set("Content-Type", "application/json")
     req.Header.Set("Accept", "application/json")
 
     logger.Debug("Request: ", req)
-    
+
     // Check if authorization creds have been configured
     if len(config.Ranger.User) != 0 && len(config.Ranger.Pass) != 0 {
         // Need to add authorization
