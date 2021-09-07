@@ -36,10 +36,16 @@ type GeneralConfig struct {
     Threads int
 }
 
+type TlsConfig struct {
+    InsecureSkipVerify                bool
+    AdditionalCertificatesPemFilename string
+}
+
 type Config struct {
     Azure   AzureConfig
     Ranger  RangerConfig
     General GeneralConfig
+    Tls     TlsConfig
 }
 
 func NewConfig() Config {
@@ -198,6 +204,24 @@ func NewConfig() Config {
         }
     }
 
+    // TLS Config
+    insecureSkipVerify := false
+    s, present := os.LookupEnv("TLS_INSECURE_SKIP_VERIFY")
+    if present {
+        if i, e := strconv.ParseBool(s); e != nil {
+            logger.Error("TLS_INSECURE_SKIP_VERIFY is not a valid bool")
+            ok = false
+        } else {
+            insecureSkipVerify = i
+        }
+    }
+
+    var certFilename string
+    c, present := os.LookupEnv("TLS_ADDITIONAL_CERTIFICATES_PEM_FILENAME")
+    if present {
+        certFilename = c
+    }
+
     //
     // Sanity check
     //
@@ -229,6 +253,10 @@ func NewConfig() Config {
         },
         General: GeneralConfig {
             Threads: threads,
+        },
+        Tls: TlsConfig{
+            InsecureSkipVerify:                insecureSkipVerify,
+            AdditionalCertificatesPemFilename: certFilename,
         },
     }
 }

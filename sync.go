@@ -1,6 +1,9 @@
 package adsync
 
 import (
+    "crypto/tls"
+    "crypto/x509"
+    "io/ioutil"
     "net/http"
     "sync"
     "time"
@@ -22,9 +25,45 @@ func (s semaphore) V(n int) {
     }
 }
 
+func HttpClient() *http.Client {
+    rootCAs, _ := x509.SystemCertPool()
+    if rootCAs == nil {
+        rootCAs = x509.NewCertPool()
+    }
+
+    localCertFile := config.Tls.AdditionalCertificatesPemFilename
+    // Read in the cert file
+    if localCertFile != "" {
+        certs, err := ioutil.ReadFile(localCertFile)
+        if err != nil {
+            // Deliberately failing in case if file with certificates can't be read
+            logger.Fatal("Failed to append cert file to RootCAs: ", localCertFile, err)
+        }
+        // Append our cert to the system pool
+        if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
+            // Deliberately failing in case if certificates were not appended
+            logger.Fatal("No certs appended, PEM file did not contain any certificates: ", localCertFile)
+        } else {
+            logger.Warn("Appended certs to RootCAs from ", localCertFile)
+        }
+    }
+
+    if config.Tls.InsecureSkipVerify {
+        logger.Warn("TLS InsecureSkipVerify enabled. Trusting all TLS certificates")
+    }
+
+    tlsconfig := &tls.Config{
+        InsecureSkipVerify: config.Tls.InsecureSkipVerify,
+        RootCAs:            rootCAs,
+    }
+    tr := &http.Transport{TLSClientConfig: tlsconfig}
+
+    return &http.Client{Transport: tr}
+}
+
 func UserSync() {
     // Create a shared client object
-    client := &http.Client{}
+    client := HttpClient()
 
     // Create an Azure object
     azure := Azure{ client: client }
@@ -105,7 +144,7 @@ func UserSync() {
 
 func GroupSync() {
     // Create a shared client object
-    client := &http.Client{}
+    client := HttpClient()
 
     // Create an Azure object
     azure := Azure{ client: client }
@@ -267,7 +306,7 @@ func GroupSync() {
 
 func GroupUserSync() {
     // Create a shared client object
-    client := &http.Client{}
+    client := HttpClient()
 
     // Create an Azure object
     azure := Azure{ client: client }
