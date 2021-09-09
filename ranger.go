@@ -119,7 +119,7 @@ type VXUgsyncAuditInfo struct {
 
 func CreatePortalUser( client *http.Client, user VXPortalUser ) RangerError {
 
-    logger.Info("Creating portal user for: ", user.LoginId)
+    logger.Info("Creating Ranger portal user for: ", user.LoginId)
 
     // Marshal the JSON for the portal user
     portal, err := json.Marshal( user )
@@ -192,14 +192,14 @@ func CreatePortalUser( client *http.Client, user VXPortalUser ) RangerError {
         logger.Debug("Result: ", string(body))
     }
 
-    logger.Info("Created portal user: ", user.LoginId)
+    logger.Info("Created Ranger portal user: ", user.LoginId)
 
     return RangerError{}
 }
 
 func CreateUserInfo( client *http.Client, uginfo VXUserGroupInfo ) RangerError {
 
-    logger.Info("Creating user info for user: ", uginfo.XuserInfo.Name)
+    logger.Info("Creating Ranger user info for user: ", uginfo.XuserInfo.Name)
 
     // Marshal the JSON for the user info
     info, err := json.Marshal( uginfo )
@@ -272,13 +272,13 @@ func CreateUserInfo( client *http.Client, uginfo VXUserGroupInfo ) RangerError {
         logger.Debug("Result: ", string(body))
     }
 
-    logger.Info("Created user info for: ", uginfo.XuserInfo.Name)
+    logger.Info("Created Ranger user info for: ", uginfo.XuserInfo.Name)
 
     return RangerError{}
 }
 
 func DeleteUser( client *http.Client, id int ) RangerError {
-    logger.Info("Deleting group ", id)
+    logger.Info("Deleting Ranger group ", id)
 
     url := config.Ranger.Host + config.Ranger.GroupsUri + strconv.Itoa( id )
 
@@ -319,13 +319,13 @@ func DeleteUser( client *http.Client, id int ) RangerError {
         return RangerError{ resp.Status, resp.StatusCode, errors.New("Expected " + strconv.Itoa(http.StatusNoContent)) }
     }
 
-    logger.Info("Deleted group")
+    logger.Info("Deleted Ranger group", id)
 
     return RangerError{}
 }
 
 func GetGroups( client *http.Client ) (VXGroups,RangerError) {
-    logger.Info("Getting groups")
+    logger.Info("Fetching Ranger groups")
 
     url := config.Ranger.Host + config.Ranger.GroupsUri
 
@@ -390,15 +390,19 @@ func GetGroups( client *http.Client ) (VXGroups,RangerError) {
         logger.Debug("Result: ", string(body))
     }
 
-    logger.Info("Got groups")
+    if len(info.VXGroups) == 0 {
+        logger.Warn("Fetched Ranger 0 groups")
+    } else {
+        logger.Info("Fetched Ranger ", len(info.VXGroups), " groups")
+    }
 
     return info, RangerError{}
 }
 
 func DeleteGroup( client *http.Client, id int ) RangerError {
-    logger.Info("Deleting group ", id)
+    logger.Info("Deleting Ranger group ", id)
 
-    url := config.Ranger.Host + config.Ranger.GroupsUri + strconv.Itoa( id )
+    url := config.Ranger.Host + config.Ranger.GroupDeleteUri + strconv.Itoa( id ) + "?forceDelete=true"
 
     logger.Debug("Request URL: ", url)
 
@@ -437,14 +441,14 @@ func DeleteGroup( client *http.Client, id int ) RangerError {
         return RangerError{ resp.Status, resp.StatusCode, errors.New("Expected " + strconv.Itoa(http.StatusNoContent)) }
     }
 
-    logger.Info("Deleted group")
+    logger.Info("Deleted Ranger group ", id)
 
     return RangerError{}
 }
 
 func GetGroupUsers( client *http.Client, name string ) (VXGroupUserInfo,RangerError) {
 
-    logger.Info("Getting group users for group: ", name)
+    logger.Info("Fetching Ranger group users for group: ", name)
 
     url := config.Ranger.Host + config.Ranger.GroupUsersUri + name
 
@@ -509,14 +513,18 @@ func GetGroupUsers( client *http.Client, name string ) (VXGroupUserInfo,RangerEr
         logger.Debug("Result: ", string(body))
     }
 
-    logger.Info("Got group users for: ", name)
+    if len(info.XuserInfo) == 0 {
+        logger.Warn("Fetched Ranger 0 group users for: ", name)
+    } else {
+        logger.Info("Fetched Ranger ", len(info.XuserInfo), " group users for: ", name)
+    }
 
     return info, RangerError{}
 }
 
 func DeleteGroupUser( client *http.Client, group string, user string ) RangerError {
 
-    logger.Info("Deleting group user for group; ", group, " name: ", user)
+    logger.Info("Deleting Ranger group user for group; ", group, " name: ", user)
 
     url := config.Ranger.Host + config.Ranger.GroupUserUri + group + "/user/" + user
 
@@ -567,14 +575,14 @@ func DeleteGroupUser( client *http.Client, group string, user string ) RangerErr
         return RangerError{ resp.Status, resp.StatusCode, errors.New("Expected " + strconv.Itoa(http.StatusNoContent)) }
     }
 
-    logger.Info("Deleted group user for group; ", group, " name: ", user)
+    logger.Info("Deleted Ranger group user for group; ", group, " name: ", user)
 
     return RangerError{}
 }
 
 func CreateGroupInfo( client *http.Client, guinfo VXGroupUserInfo ) RangerError {
 
-    logger.Info("Creating group info for group: ", guinfo.XgroupInfo.Name, " users: ", guinfo.XuserInfo )
+    logger.Info("Creating Ranger group info for group: ", guinfo.XgroupInfo.Name)
 
     // Marshal the JSON for the user info
     info, err := json.Marshal( guinfo )
@@ -647,7 +655,7 @@ func CreateGroupInfo( client *http.Client, guinfo VXGroupUserInfo ) RangerError 
         logger.Debug("Result: ", string(body))
     }
 
-    logger.Info("Created group info for: ", guinfo.XgroupInfo.Name)
+    logger.Info("Created Ranger group info for: ", guinfo.XgroupInfo.Name)
 
     return RangerError{}
 }

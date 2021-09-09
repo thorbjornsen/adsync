@@ -26,26 +26,30 @@ func (s semaphore) V(n int) {
 }
 
 func HttpClient() *http.Client {
+    localCertFile := config.Tls.AdditionalCertificatesPemFilename
+
+    // Shortcut, no need to load any certs if not configured
+    if len(localCertFile) == 0 {
+        return &http.Client{}
+    }
+
     rootCAs, _ := x509.SystemCertPool()
     if rootCAs == nil {
         rootCAs = x509.NewCertPool()
     }
 
-    localCertFile := config.Tls.AdditionalCertificatesPemFilename
     // Read in the cert file
-    if localCertFile != "" {
-        certs, err := ioutil.ReadFile(localCertFile)
-        if err != nil {
-            // Deliberately failing in case if file with certificates can't be read
-            logger.Fatal("Failed to append cert file to RootCAs: ", localCertFile, err)
-        }
-        // Append our cert to the system pool
-        if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
-            // Deliberately failing in case if certificates were not appended
-            logger.Fatal("No certs appended, PEM file did not contain any certificates: ", localCertFile)
-        } else {
-            logger.Warn("Appended certs to RootCAs from ", localCertFile)
-        }
+    certs, err := ioutil.ReadFile(localCertFile)
+    if err != nil {
+        // Deliberately failing in case if file with certificates can't be read
+        logger.Fatal("Failed to append cert file to RootCAs: ", localCertFile, err)
+    }
+    // Append our cert to the system pool
+    if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
+        // Deliberately failing in case if certificates were not appended
+        logger.Fatal("No certs appended, PEM file did not contain any certificates: ", localCertFile)
+    } else {
+        logger.Warn("Appended certs to RootCAs from ", localCertFile)
     }
 
     if config.Tls.InsecureSkipVerify {

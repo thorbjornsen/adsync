@@ -28,6 +28,7 @@ type RangerConfig struct {
     GroupUsersUri  string
     GroupInfoUri   string
     GroupUserUri   string
+    GroupDeleteUri string
 
     Headers        map[string]string
 }
@@ -93,8 +94,10 @@ func NewConfig() Config {
     groupFilter := []string{}
 
     if filter, present := os.LookupEnv("AZURE_GROUP_FILTER"); present {
-        // Semicolon separated list
-        groupFilter = strings.Split(filter, ";")
+        if len(filter) > 0 {
+            // Semicolon separated list
+            groupFilter = strings.Split(filter, ";")
+        }
     }
 
     //
@@ -171,11 +174,18 @@ func NewConfig() Config {
         groupUserUri += "/"
     }
 
+    groupDeleteUri, present := os.LookupEnv("RANGER_GROUP_DELETE_URI")
+    if ! present {
+        groupDeleteUri = "/service/xusers/secure/groups/id/"
+    } else if ! strings.HasSuffix(groupsUri, "/") {
+        groupDeleteUri += "/"
+    }
+
     //
     // General config
     //
 
-    threads := 5
+    threads := 1
 
     t, present := os.LookupEnv("ADSYNC_THREADS")
     if present {
@@ -250,6 +260,7 @@ func NewConfig() Config {
             GroupUsersUri:  groupUsersUri,
             GroupInfoUri:   groupInfoUri,
             GroupUserUri:   groupUserUri,
+            GroupDeleteUri: groupDeleteUri,
         },
         General: GeneralConfig {
             Threads: threads,

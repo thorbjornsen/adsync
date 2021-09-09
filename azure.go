@@ -265,11 +265,13 @@ func (a *Azure) GetGroups() AzureError {
 
         search := ""
 
-        for i, filter := range config.Azure.GroupFilter {
-            if i == 0 {
-                search = `$search=` + `"displayName:` + filter + `"`
-            } else {
-                search += `%20OR%20"displayName:` + filter +`"`
+        if len(config.Azure.GroupFilter) != 0 {
+            for i, filter := range config.Azure.GroupFilter {
+                if i == 0 {
+                    search = `$search=` + `"displayName:` + filter + `"`
+                } else {
+                    search += `%20OR%20"displayName:` + filter +`"`
+                }
             }
         }
 
