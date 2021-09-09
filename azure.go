@@ -6,6 +6,7 @@ import (
     "io"
     "io/ioutil"
     "net/http"
+    "net/url"
     "strconv"
     "strings"
     "time"
@@ -267,6 +268,7 @@ func (a *Azure) GetGroups() AzureError {
 
         if len(config.Azure.GroupFilter) != 0 {
             for i, filter := range config.Azure.GroupFilter {
+                filter := url.QueryEscape(filter)
                 if i == 0 {
                     search = `$search=` + `"displayName:` + filter + `"`
                 } else {
