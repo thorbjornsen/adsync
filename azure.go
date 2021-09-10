@@ -267,12 +267,15 @@ func (a *Azure) GetGroups() AzureError {
         search := ""
 
         if len(config.Azure.GroupFilter) != 0 {
+            // Constructing filter that will match the start of group displayNames (i.e. prefix)
+            // "filter" should be used instead of search to leverage "startsWith" operators joined by "or" condition: https://docs.microsoft.com/en-us/graph/query-parameters#filter-parameter
+            // "startsWith" is supported with "displayName": https://docs.microsoft.com/en-us/graph/aad-advanced-queries#group-properties
             for i, filter := range config.Azure.GroupFilter {
                 filter := url.QueryEscape(filter)
                 if i == 0 {
-                    search = `$search=` + `"displayName:` + filter + `"`
+                    search = `$filter=startsWith(displayName,%27` + filter + `%27)`
                 } else {
-                    search += `%20OR%20"displayName:` + filter +`"`
+                    search += `+or+startsWith(displayName,%27` + filter +`%27)`
                 }
             }
         }
