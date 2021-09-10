@@ -133,9 +133,6 @@ func GroupUserSync() {
                 continue
             }
 
-            // Remove the group from the Ranger map of groups to delete, it exists in Azure
-            delete(groups,group.DisplayName)
-
             // Track users seen in this group
             check := make(map[string]int)
 
@@ -152,7 +149,7 @@ func GroupUserSync() {
                         return
                     }
 
-                    if err := azure.GetGroupMembers(group.Id); !err.Ok() {
+                    if err := azure.GetGroupMembers(group.Id, group.DisplayName); !err.Ok() {
                         if err.Unauthorized() {
                             // Authorization probably expired
                             if err := azure.GetAuthorization(); !err.Ok() {
@@ -210,6 +207,15 @@ func GroupUserSync() {
                     // Mark user as part of any group (to be added later)
                     users[user.UserPrincipalName] += 1
                 }
+
+
+                if len(guinfo.XuserInfo) == 0 {
+                    logger.Warn("Group does not contain any member of type user. Treating it as if it doesn't exist in Azure: ", group.DisplayName)
+                    continue
+                }
+
+                // Remove the group from the Ranger map of groups to delete, it exists in Azure
+                delete(groups,group.DisplayName)
 
                 //
                 // Send the group info
