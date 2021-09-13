@@ -28,6 +28,11 @@ func (s semaphore) V(n int) {
 func HttpClient() *http.Client {
     localCertFile := config.Tls.AdditionalCertificatesPemFilename
 
+    if (len(localCertFile) == 0 && !config.Tls.InsecureSkipVerify) {
+        logger.Debug("Skipping HTTP client TLS customization. Using system defaults")
+        return &http.Client{}
+    }
+
     rootCAs, err := x509.SystemCertPool()
     if rootCAs == nil {
         logger.Error("x509.SystemCertPool not found, creating an empty CertPool instead: ", err)
