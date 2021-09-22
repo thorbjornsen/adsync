@@ -6,6 +6,7 @@ import (
     "io"
     "io/ioutil"
     "net/http"
+    "net/url"
     "strconv"
     "strings"
     "time"
@@ -266,11 +267,15 @@ func (a *Azure) GetGroups() AzureError {
         search := ""
 
         if len(config.Azure.GroupFilter) != 0 {
+            // Constructing filter that will match the start of group displayNames (i.e. prefix)
+            // "filter" should be used instead of search to leverage "startsWith" operators joined by "or" condition: https://docs.microsoft.com/en-us/graph/query-parameters#filter-parameter
+            // "startsWith" is supported with "displayName": https://docs.microsoft.com/en-us/graph/aad-advanced-queries#group-properties
             for i, filter := range config.Azure.GroupFilter {
+                filter := url.QueryEscape(filter)
                 if i == 0 {
-                    search = `$search=` + `"displayName:` + filter + `"`
+                    search = `$filter=startsWith(displayName,%27` + filter + `%27)`
                 } else {
-                    search += `%20OR%20"displayName:` + filter +`"`
+                    search += `+or+startsWith(displayName,%27` + filter +`%27)`
                 }
             }
         }
@@ -349,14 +354,14 @@ func (a *Azure) MoreGroups() bool {
     }
 }
 
-func (a *Azure) GetGroupMembers(group string ) AzureError {
+func (a *Azure) GetGroupMembers(id, displayName string) AzureError {
 
-    logger.Info("Fetching group members from Azure")
+    logger.Info("Fetching group members from Azure for: ", displayName)
 
     var url string
 
     if len(a.Members.OdataNextLink) == 0 {
-        url = "https://graph.microsoft.com/v1.0/groups/" + group + "/members"
+        url = "https://graph.microsoft.com/v1.0/groups/" + id + "/members"
     } else {
         url = a.Members.OdataNextLink
     }
@@ -371,9 +376,6 @@ func (a *Azure) GetGroupMembers(group string ) AzureError {
     }
 
     req.Header.Set("Accept", "application/json")
-
-    logger.Debug("Request URL: ", url)
-
     req.Header.Set("Authorization", "Bearer " + a.Auth.AccessToken)
 
     // Execute the request
@@ -412,7 +414,7 @@ func (a *Azure) GetGroupMembers(group string ) AzureError {
         a.Members = members
     }
 
-    logger.Info("Fetched ", len(members.Value), " group members from Azure")
+    logger.Info("Fetched ", len(members.Value), " group members from Azure for: ", displayName)
 
     return AzureError{}
 }
