@@ -39,6 +39,21 @@ type VXUserGroupInfo struct {
 //
 // /service/xusers/groups
 //
+type VXGroup []struct {
+    Name        string `json:"name"`
+    Description string `json:"description"`
+    GroupType   int    `json:"groupType"`
+    CredStoreId int    `json:"credStoreId"`
+    IsVisible   int    `json:"isVisible"`
+    MyClassType int    `json:"myClassType"`
+    GroupSource int    `json:"groupSource"`
+    Id          int    `json:"id"`
+    CreateDate  time.Time `json:"createDate"`
+    UpdateDate  time.Time `json:"updateDate"`
+    Owner       string `json:"owner"`
+    UpdatedBy   string `json:"updatedBy"`
+}
+
 type VXGroups struct {
     VXGroups []struct {
         Name        string `json:"name"`
@@ -391,9 +406,17 @@ func GetGroups( client *http.Client ) (VXGroups,RangerError) {
     }
 
     if len(info.VXGroups) == 0 {
-        logger.Warn("Fetched Ranger 0 groups")
+        logger.Warn("Fetched 0 Ranger groups")
     } else {
-        logger.Info("Fetched Ranger ", len(info.VXGroups), " groups")
+        count := 0
+
+        for _, group := range info.VXGroups {
+            if group.IsVisible != 0 && group.GroupSource == 1 {
+                count++
+            }
+        }
+
+        logger.Info("Fetched ", count, " Ranger groups")
     }
 
     return info, RangerError{}
@@ -514,9 +537,9 @@ func GetGroupUsers( client *http.Client, name string ) (VXGroupUserInfo,RangerEr
     }
 
     if len(info.XuserInfo) == 0 {
-        logger.Warn("Fetched Ranger 0 group users for: ", name)
+        logger.Warn("Fetched 0 Ranger group users for: ", name)
     } else {
-        logger.Info("Fetched Ranger ", len(info.XuserInfo), " group users for: ", name)
+        logger.Info("Fetched ", len(info.XuserInfo), " Ranger group users for: ", name)
     }
 
     return info, RangerError{}

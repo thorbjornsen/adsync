@@ -255,9 +255,7 @@ func (a *Azure) MoreUsers() bool {
     }
 }
 
-func (a *Azure) GetGroups() AzureError {
-
-    logger.Info("Fetching groups from Azure")
+func (a *Azure) getGroups() (AzureGroups,AzureError) {
 
     var rurl string
 
@@ -267,9 +265,6 @@ func (a *Azure) GetGroups() AzureError {
         search := ""
 
         if len(config.Azure.GroupFilter) != 0 {
-            // Constructing filter that will match the start of group displayNames (i.e. prefix)
-            // "filter" should be used instead of search to leverage "startsWith" operators joined by "or" condition: https://docs.microsoft.com/en-us/graph/query-parameters#filter-parameter
-            // "startsWith" is supported with "displayName": https://docs.microsoft.com/en-us/graph/aad-advanced-queries#group-properties
             for i, filter := range config.Azure.GroupFilter {
                 filter := url.QueryEscape(filter)
                 if i == 0 {
@@ -293,7 +288,7 @@ func (a *Azure) GetGroups() AzureError {
 
     if err != nil {
         logger.Debug("Problem creating the request: ", err)
-        return AzureError{ Err: err }
+        return AzureGroups{},AzureError{ Err: err }
     }
 
     logger.Debug("Request: ", req)
@@ -310,7 +305,7 @@ func (a *Azure) GetGroups() AzureError {
 
     if err != nil {
         logger.Debug("Request returned an error: ", err)
-        return AzureError{ Err: err }
+        return AzureGroups{},AzureError{ Err: err }
     }
 
     defer func( Body io.ReadCloser ) {
@@ -323,7 +318,7 @@ func (a *Azure) GetGroups() AzureError {
     // Only accepted status is 200
     if resp.StatusCode != http.StatusOK {
         logger.Debug("Unexpected status code: ", resp.Status)
-        return AzureError{ resp.Status, resp.StatusCode, errors.New("Expected " + strconv.Itoa(http.StatusOK)) }
+        return AzureGroups{},AzureError{ resp.Status, resp.StatusCode, errors.New("Expected " + strconv.Itoa(http.StatusOK)) }
     }
 
     //
@@ -338,10 +333,44 @@ func (a *Azure) GetGroups() AzureError {
         logger.Debug("Result: ", string(body))
     } else {
         logger.Debug("Result: ", string(body))
+    }
+
+    return groups,AzureError{}
+}
+
+func (a *Azure) GetGroups() AzureError {
+
+    logger.Info("Fetching Azure groups")
+
+    if groups, err := a.getGroups(); ! err.Ok() {
+        return err
+    } else {
         a.Groups = groups
     }
 
-    logger.Info("Fetched ", len(groups.Value), " groups from Azure")
+    logger.Info("Fetched ", len(a.Groups.Value), " Azure groups")
+
+    return AzureError{}
+}
+
+func (a *Azure) GetAllGroups() AzureError {
+
+    logger.Info("Fetching Azure groups")
+
+    for moregroups := true; moregroups; moregroups = a.MoreGroups() {
+
+        if groups, err := a.getGroups(); ! err.Ok() {
+            return err
+        } else if len(a.Groups.Value) == 0 {
+            a.Groups = groups
+        } else {
+            for _, group := range groups.Value {
+                a.Groups.Value = append( a.Groups.Value, group )
+            }
+        }
+    }
+
+    logger.Info("Fetched ", len(a.Groups.Value), " Azure groups")
 
     return AzureError{}
 }
@@ -354,25 +383,23 @@ func (a *Azure) MoreGroups() bool {
     }
 }
 
-func (a *Azure) GetGroupMembers(id, displayName string) AzureError {
+func (a *Azure) getGroupMembers(id string) (AzureGroupMembers,AzureError) {
 
-    logger.Info("Fetching group members from Azure for: ", displayName)
-
-    var url string
+    var rurl string
 
     if len(a.Members.OdataNextLink) == 0 {
-        url = "https://graph.microsoft.com/v1.0/groups/" + id + "/members"
+        rurl = "https://graph.microsoft.com/v1.0/groups/" + id + "/members"
     } else {
-        url = a.Members.OdataNextLink
+        rurl = a.Members.OdataNextLink
     }
 
-    logger.Debug("Request URL: ", url)
+    logger.Debug("Request URL: ", rurl)
 
-    req, err := http.NewRequest(http.MethodGet, url, nil)
+    req, err := http.NewRequest(http.MethodGet, rurl, nil)
 
     if err != nil {
         logger.Debug("Problem creating the request: ", err)
-        return AzureError{ Err: err }
+        return AzureGroupMembers{},AzureError{ Err: err }
     }
 
     req.Header.Set("Accept", "application/json")
@@ -383,7 +410,7 @@ func (a *Azure) GetGroupMembers(id, displayName string) AzureError {
 
     if err != nil {
         logger.Debug("Request returned an error: ", err)
-        return AzureError{ Err: err }
+        return AzureGroupMembers{},AzureError{ Err: err }
     }
 
     defer func( Body io.ReadCloser ) {
@@ -396,7 +423,7 @@ func (a *Azure) GetGroupMembers(id, displayName string) AzureError {
     // Only accepted status is 200
     if resp.StatusCode != http.StatusOK {
         logger.Debug("Unexpected status code: ", resp.Status)
-        return AzureError{ resp.Status, resp.StatusCode, errors.New("Expected " + strconv.Itoa(http.StatusOK)) }
+        return AzureGroupMembers{},AzureError{ resp.Status, resp.StatusCode, errors.New("Expected " + strconv.Itoa(http.StatusOK)) }
     }
 
     //
@@ -411,10 +438,44 @@ func (a *Azure) GetGroupMembers(id, displayName string) AzureError {
         logger.Debug("Result: ", string(body))
     } else {
         logger.Debug("Result: ", string(body))
+    }
+
+    return members,AzureError{}
+}
+
+func (a *Azure) GetGroupMembers(id, name string) AzureError {
+
+    logger.Info("Fetching Azure group members for: ", name)
+
+    if members, err := a.getGroupMembers(id); ! err.Ok() {
+        return err
+    } else {
         a.Members = members
     }
 
-    logger.Info("Fetched ", len(members.Value), " group members from Azure for: ", displayName)
+    logger.Info("Fetched ", len(a.Members.Value), " Azure group members for: ", name)
+
+    return AzureError{}
+}
+
+func (a *Azure) GetAllGroupMembers(id, name string) AzureError {
+
+    logger.Info("Fetching Azure group members for: ", name)
+
+    for moremembers := true; moremembers; moremembers = a.MoreMembers() {
+
+        if members, err := a.getGroupMembers(id); ! err.Ok() {
+            return err
+        } else if len(a.Members.Value) == 0 {
+            a.Members = members
+        } else {
+            for _, member := range members.Value {
+                a.Members.Value = append( a.Members.Value, member )
+            }
+        }
+    }
+
+    logger.Info("Fetched ", len(a.Members.Value), " Azure group members for: ", name)
 
     return AzureError{}
 }
