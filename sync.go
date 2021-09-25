@@ -3,6 +3,7 @@ package adsync
 import (
     "crypto/tls"
     "crypto/x509"
+    "errors"
     "io/ioutil"
     "net/http"
     "sync"
@@ -69,123 +70,194 @@ func HttpClient() *http.Client {
     return &http.Client{Transport: tr}
 }
 
-func GroupUserSync() {
+type Adsync struct {
+    client *http.Client
 
-    // Create a shared client object
-    client := HttpClient()
+    // The Azure object
+    azure Azure
 
-    // Create an Azure object
-    azure := Azure{ client: client }
+    // Used to track existing Ranger groups
+    rangerGroups map[string]int
 
-    // Request an auth token
-    err := azure.GetAuthorization()
+    // Used to cache the nested groups
+    nestedGroups map[string]int
 
-    if ! err.Ok() {
-        logger.Fatal("Problem getting token: ", err)
-    }
+    // Used to cache the groups that have already been created
+    createdGroups map[string]int
+
+    // List of all users that are members of created groups
+    groupUsers map[string]int
+}
+
+func (a *Adsync) getRangerGroups() AdsyncError {
+    // Clear any existing groups/init the map
+    a.rangerGroups = make(map[string]int)
 
     //
     // Get the groups currently in Ranger, to see which ones might have been deleted from Azure
     //
-
-    groups := make(map[string]int)
-
-    if gs, err := GetGroups( client ); ! err.Ok() {
-        logger.Error("Cannot fetch groups from Ranger: ", err)
+    if gs, err := GetGroups( a.client ); ! err.Ok() {
+        return AdsyncError{ Err: errors.New( "Cannot fetch groups from Ranger: " + err.Error() ) }
     } else {
         for _, group := range gs.VXGroups {
             // Only track external groups...which is GroupSource = 1
             if group.GroupSource == 1 {
                 // Need the name -> id mapping for possible deletion later
-                groups[group.Name] = group.Id
+                a.rangerGroups[group.Name] = group.Id
             }
         }
     }
+
+    return AdsyncError{}
+}
+
+func (a *Adsync) getAzureGroup( id string ) (AzureGroup,AdsyncError) {
+    //
+    // Retries are required. If 401 is returned for a reason other than invalid token, then this would infinite loop without retries
+    //
+    for retries := 0; ; retries++ {
+        if retries > config.Azure.AuthRetries {
+            return AzureGroup{},AdsyncError{ Err: errors.New( "Exceeded maximum number of authorization retries" ) }
+        }
+
+        //
+        // Fetch all the top level groups in Azure
+        //
+        if group, err := a.azure.GetGroup( id ); !err.Ok() {
+            if err.Unauthorized() {
+                // Authorization probably expired
+                if err := a.azure.GetAuthorization(); !err.Ok() {
+                    logger.Error("Problem getting authorization: ", err)
+                    // Retry the auth request
+                }
+            } else {
+                return AzureGroup{},AdsyncError{ Err: errors.New( "Cannot fetch groups from Azure: " + err.Error() ) }
+            }
+        } else {
+            return group,AdsyncError{}
+        }
+    }
+}
+
+func (a *Adsync) getAzureGroups() AdsyncError {
+    // Clear any existing group info
+    a.azure.Groups = nil
 
     //
     // Retries are required. If 401 is returned for a reason other than invalid token, then this would infinite loop without retries
     //
     for retries := 0; ; retries++ {
         if retries > config.Azure.AuthRetries {
-            logger.Error("Exceeded maximum number of authorization retries")
-            return
+            return AdsyncError{ Err: errors.New( "Exceeded maximum number of authorization retries" ) }
         }
 
         //
-        // Fetch all the groups in Azure
+        // Fetch all the top level groups in Azure
         //
-        if err := azure.GetAllGroups(); !err.Ok() {
+        if err := a.azure.GetAllGroups(); !err.Ok() {
             if err.Unauthorized() {
                 // Authorization probably expired
-                if err := azure.GetAuthorization(); !err.Ok() {
+                if err := a.azure.GetAuthorization(); !err.Ok() {
                     logger.Error("Problem getting authorization: ", err)
+                    // Retry the auth request
                 }
             } else {
-                logger.Error("Problem getting groups: ", err)
-                return
+                return AdsyncError{ Err: errors.New( "Cannot fetch groups from Azure: " + err.Error() ) }
             }
         } else {
             break
         }
     }
 
-    // Track list of users associated with Azure groups
-    users := make(map[string]int)
+    return AdsyncError{}
+}
+
+func (a *Adsync) getAzureGroupMembers( id, name string ) AdsyncError {
+    // Clear any existing group member info
+    a.azure.Members = nil
 
     //
-    // Process the groups from Azure
+    // Retries are required. If 401 is returned for any reason other than invalid token, causes an infinite loop without retries
     //
-    for _, group := range azure.Groups.Value {
-        if group.DisplayName == "" {
-            logger.Error("Azure AD Group doesn't have a name: ", group.Id)
-            continue
+    for retries := 0; ; retries++ {
+        if retries > config.Azure.AuthRetries {
+            return AdsyncError{ Err: errors.New( "Exceeded maximum number of authorization retries" ) }
         }
 
-        // Track users seen in this group
-        check := make(map[string]int)
-
-        //
-        // Retries are required. If 401 is returned for any reason other than invalid token, causes an infinite loop without retries
-        //
-        for retries := 0; ; retries++ {
-            if retries > config.Azure.AuthRetries {
-                logger.Error("Exceeded maximum number of authorization retries")
-                return
-            }
-
-            if err := azure.GetAllGroupMembers(group.Id, group.DisplayName); !err.Ok() {
-                if err.Unauthorized() {
-                    // Authorization probably expired
-                    if err := azure.GetAuthorization(); !err.Ok() {
-                        logger.Error("Problem getting authorization: ", err)
-                    }
-                } else {
-                    logger.Error("Problem getting group members: ", err)
-                    return
+        if err := a.azure.GetAllGroupMembers(id, name); !err.Ok() {
+            if err.Unauthorized() {
+                // Authorization probably expired
+                if err := a.azure.GetAuthorization(); !err.Ok() {
+                    logger.Error("Problem getting authorization: ", err)
                 }
             } else {
-                break
+                return AdsyncError{ Err: errors.New( "Cannot fetch group members from Azure: " + err.Error() ) }
             }
+        } else {
+            break
         }
+    }
 
-        guinfo := VXGroupUserInfo{}
+    return AdsyncError{}
+}
 
-        //
-        // Set the group fields from the Azure info
-        //
-        guinfo.XgroupInfo.Name = group.DisplayName
-        guinfo.XgroupInfo.Description = "Imported from Active Directory"
-        guinfo.XgroupInfo.GroupType = 1
-        guinfo.XgroupInfo.GroupSource = 1
-        guinfo.XgroupInfo.IsVisible = 1
+func (a *Adsync) processAzureGroup( group AzureGroup ) AdsyncError {
+    //
+    // Id and DisplayName are required
+    //
+    if group.Id == "" {
+        return AdsyncError{ Err: errors.New( "Azure group doesn't have an Id" ) }
+    }
+    if group.DisplayName == "" {
+        return AdsyncError{ Err: errors.New( "Azure group doesn't have a display name: : " + group.Id ) }
+    }
 
-        //
-        // Create the users from the Azure info
-        //
-        for _, user := range azure.Members.Value {
+    //
+    // Check if the group had already been created
+    //
+    if a.createdGroups[group.Id] != 0 {
+        logger.Warn( "Azure group ", group.DisplayName, " had already been created. Skipping" )
+        return AdsyncError{}
+    }
+
+    //
+    // Fetch the group members for this group
+    //
+    if err := a.getAzureGroupMembers( group.Id, group.DisplayName ); ! err.Ok() {
+        return AdsyncError{ Err: errors.New( "Cannot fetch groups members from Azure: " + err.Error() ) }
+    }
+
+    //
+    // Store the nested groups for processing later
+    //
+    for _, nslice := range a.azure.Nested {
+        for _, nested := range nslice.Value {
+            a.nestedGroups[nested.Id] += 1
+        }
+    }
+
+    // Track users seen in this group
+    check := make(map[string]int)
+
+    //
+    // Set the group fields from the Azure info
+    //
+    guinfo := VXGroupUserInfo{}
+
+    guinfo.XgroupInfo.Name = group.DisplayName
+    guinfo.XgroupInfo.Description = "Imported from Active Directory"
+    guinfo.XgroupInfo.GroupType = 1
+    guinfo.XgroupInfo.GroupSource = 1
+    guinfo.XgroupInfo.IsVisible = 1
+
+    //
+    // Create the users from the Azure info
+    //
+    for _, uslice := range a.azure.Members {
+        for _, user := range uslice.Value {
 
             if user.OdataType != "#microsoft.graph.user" {
-                logger.Warn("Unsupported Azure AD Group member type: ", user.OdataType, " for id: ", user.Id)
+                logger.Info("Unsupported Azure AD Group member type: ", user.OdataType, " for: ", user.DisplayName)
                 continue
             }
 
@@ -209,46 +281,136 @@ func GroupUserSync() {
             check[user.UserPrincipalName] = 1
 
             // Mark user as part of any group (to be added later)
-            users[user.UserPrincipalName] += 1
+            a.groupUsers[user.UserPrincipalName] += 1
+        }
+    }
+
+    if len(guinfo.XuserInfo) == 0 {
+        logger.Info("Azure group ", group.DisplayName, " does not contain any users.")
+        return AdsyncError{}
+    }
+
+    // Remove the group from the Ranger map of groups to delete, it exists in Azure
+    delete(a.rangerGroups, group.DisplayName)
+
+    //
+    // Send the group info
+    //
+    if a.createdGroups[group.Id] == 0 {
+        if err := CreateGroupInfo(a.client, guinfo); !err.Ok() {
+            return AdsyncError{ Err: errors.New( "Problem creating group info: " + err.Error() ) }
         }
 
-        if len(guinfo.XuserInfo) == 0 {
-            logger.Warn("Group does not contain any member of type user. Treating it as if it doesn't exist in Azure: ", group.DisplayName)
-            continue
-        }
+        // Increment the count for that specific group
+        a.createdGroups[group.Id] += 1
+    } else {
+        logger.Warn( "Ranger group ", group.DisplayName, " already exists" )
+    }
 
-        // Remove the group from the Ranger map of groups to delete, it exists in Azure
-        delete(groups, group.DisplayName)
+    // Request the group info from Ranger
+    info, err := GetGroupUsers(a.client, group.DisplayName)
 
-        //
-        // Send the group info
-        //
-        if err := CreateGroupInfo(client, guinfo); !err.Ok() {
-            logger.Error("Problem creating group info: ", err)
-            continue
-        }
+    if !err.Ok() {
+        return AdsyncError{ Err: errors.New( "Problem getting group users: " + err.Error() ) }
+    }
 
-        // Request the group info from Ranger
-        info, err := GetGroupUsers(client, group.DisplayName)
-
-        if !err.Ok() {
-            logger.Error("Problem getting group users: ", err)
-            return
-        }
-
-        //
-        // Need to determine if any existing users have been removed from the group
-        //
-        if len(info.XuserInfo) != 0 {
-            // Loop over all the returned users
-            for _, user := range info.XuserInfo {
-                // Check if the user from the returned list is not in the group
-                if _, ok := check[user.Name]; !ok {
-                    // Need to explicitly delete the user
-                    if err := DeleteGroupUser(client, group.DisplayName, user.Name); !err.Ok() {
-                        logger.Error("Problem deleting group user: ", err)
-                    }
+    //
+    // Need to determine if any existing users have been removed from the group
+    //
+    if len(info.XuserInfo) != 0 {
+        // Loop over all the returned users
+        for _, user := range info.XuserInfo {
+            // Check if the user from the returned list is not in the group
+            if _, ok := check[user.Name]; !ok {
+                // Need to explicitly delete the user
+                if err := DeleteGroupUser(a.client, group.DisplayName, user.Name); !err.Ok() {
+                    logger.Error("Problem deleting group user: ", err)
                 }
+            }
+        }
+    }
+
+    return AdsyncError{}
+}
+
+func (a *Adsync) groupUserSync() {
+    // Create an Azure object
+    a.azure = Azure{ client: a.client }
+
+    // Request an auth token before we do anything
+    err := a.azure.GetAuthorization()
+
+    if ! err.Ok() {
+        logger.Fatal("Problem getting authorization token: ", err)
+    }
+
+    // Get the groups currently in Ranger, to see which ones might have been deleted from Azure
+    if err := a.getRangerGroups(); ! err.Ok() {
+        logger.Error( err )
+        return
+    }
+
+    // Get the top level groups currently in Azure
+    if err := a.getAzureGroups(); ! err.Ok() {
+        logger.Error( err )
+        return
+    }
+
+    //
+    // Loop over all the groups cached in the Azure object
+    //
+    for _, gslice := range a.azure.Groups {
+        for _, group := range gslice.Value {
+            if err := a.processAzureGroup( group ); ! err.Ok() {
+                logger.Error( err )
+                return
+            }
+        }
+    }
+
+    //
+    // Need to make a copy of the nested groups to work from
+    //
+    nestedGroups := make(map[string]int)
+
+    for id, count := range a.nestedGroups {
+        nestedGroups[id] = count
+    }
+
+    a.nestedGroups = make(map[string]int)
+
+    //
+    // Loop over all the cached nested groups
+    //
+    for id, count := range nestedGroups {
+        if count <= 0 {
+            continue
+        }
+
+        if group, err := a.getAzureGroup( id ); ! err.Ok() {
+            logger.Error( err )
+            return
+        } else {
+            //
+            // TODO Need to do manual filtering of the group name
+            //
+
+            if err := a.processAzureGroup( group ); ! err.Ok() {
+                logger.Error( err )
+                return
+            }
+        }
+    }
+
+    //
+    // Dont support multiple levels of group nesting, so report if any were seen
+    //
+    if len(a.nestedGroups) > 0 {
+        logger.Warn( len(a.nestedGroups), " groups were found within the nested groups. Multilayered nesting is not supported.")
+
+        if logger.isDebug() {
+            for id, _ := range a.nestedGroups {
+                logger.Debug( "Group ", id, " found within a nested group")
             }
         }
     }
@@ -256,11 +418,10 @@ func GroupUserSync() {
     //
     // Remove any groups in Ranger that weren't in Azure
     //
-
-    for name, id := range groups {
+    for name, id := range a.rangerGroups {
         logger.Debug("Removing group ", name, " from Ranger")
 
-        if err := DeleteGroup( client, id ); ! err.Ok() {
+        if err := DeleteGroup( a.client, id, name ); ! err.Ok() {
             logger.Error("Problem deleting group: ", err)
         }
     }
@@ -275,8 +436,8 @@ func GroupUserSync() {
     // Need to limit the number of running threads
     sem := make(semaphore, config.General.Threads)
 
-    for name, count := range users {
-        if( count <= 0 ) {
+    for name, count := range a.groupUsers {
+        if count <= 0  {
             continue
         }
 
@@ -300,7 +461,7 @@ func GroupUserSync() {
             puser:= VXPortalUser{ LoginId: x }
 
             // Create a portal user in Ranger
-            if err := CreatePortalUser( client, puser ); ! err.Ok() {
+            if err := CreatePortalUser( a.client, puser ); ! err.Ok() {
                 logger.Error("Problem creating a portal user: ", err)
             }
 
@@ -321,7 +482,7 @@ func GroupUserSync() {
             }
 
             // Create userinfo in Ranger
-            if err := CreateUserInfo( client, uginfo ); ! err.Ok() {
+            if err := CreateUserInfo( a.client, uginfo ); ! err.Ok() {
                 logger.Error("Problem creating user info: ", err)
             }
         }(name)
@@ -329,4 +490,15 @@ func GroupUserSync() {
 
     // Wait for the rest of the threads to finish
     wg.Wait()
+}
+
+func GroupUserSync() {
+    // Create a shared client object
+    client := HttpClient()
+
+    // Create an Adsync object
+    async := Adsync{ client: client, createdGroups: make(map[string]int,5), nestedGroups: make(map[string]int,5), groupUsers: make(map[string]int,5) }
+
+    // Run the sync
+    async.groupUserSync()
 }

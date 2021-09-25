@@ -422,8 +422,8 @@ func GetGroups( client *http.Client ) (VXGroups,RangerError) {
     return info, RangerError{}
 }
 
-func DeleteGroup( client *http.Client, id int ) RangerError {
-    logger.Info("Deleting Ranger group ", id)
+func DeleteGroup( client *http.Client, id int, name string ) RangerError {
+    logger.Info("Deleting Ranger group ", name)
 
     url := config.Ranger.Host + config.Ranger.GroupDeleteUri + strconv.Itoa( id ) + "?forceDelete=true"
 
@@ -464,7 +464,7 @@ func DeleteGroup( client *http.Client, id int ) RangerError {
         return RangerError{ resp.Status, resp.StatusCode, errors.New("Expected " + strconv.Itoa(http.StatusNoContent)) }
     }
 
-    logger.Info("Deleted Ranger group ", id)
+    logger.Info("Deleted Ranger group ", name)
 
     return RangerError{}
 }

@@ -36,3 +36,14 @@ func (e *RangerError) Ok() bool {
     return e.Err == nil
 }
 
+type AdsyncError struct{
+    Err error
+}
+
+func (e *AdsyncError) Error() string {
+    return e.Err.Error()
+}
+
+func (e *AdsyncError) Ok() bool {
+    return e.Err == nil
+}
