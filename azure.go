@@ -101,14 +101,20 @@ type AzureGroupMembers struct {
     } `json:"value"`
 }
 
+type Group struct {
+    AzGroup     AzureGroup
+    AzMembers []AzureGroupMembers
+    AzNested  []AzureGroupMembers
+}
+
 type Azure struct {
     client *http.Client
 
     Auth    AzureAuth
     Users   AzureUsers
-    Groups  []AzureGroups
-    Members []AzureGroupMembers
-    Nested  []AzureGroupMembers
+
+    // Map of id -> top level group
+    Groups  map[string]Group
 }
 
 func (a *Azure) GetAuthorization() AzureError {
@@ -315,15 +321,11 @@ func (a *Azure) GetGroup( id string ) (AzureGroup,AzureError) {
     return group,AzureError{}
 }
 
-func (a *Azure) getGroups() (AzureGroups,AzureError) {
+func (a *Azure) getGroups( next string ) (AzureGroups,AzureError) {
 
     var rurl string
 
-    if a.Groups == nil {
-        a.Groups = make([]AzureGroups, 1)
-    }
-
-    if len(a.Groups) == 0 || len(a.Groups[len(a.Groups)-1].OdataNextLink) == 0 {
+    if len(next) == 0 {
         rurl = "https://graph.microsoft.com/v1.0/groups"
 
         search := ""
@@ -343,7 +345,7 @@ func (a *Azure) getGroups() (AzureGroups,AzureError) {
             rurl += "?" + search
         }
     } else {
-        rurl = a.Groups[len(a.Groups)-1].OdataNextLink
+        rurl = next
     }
 
     logger.Debug("Request URL: ", rurl)
@@ -407,16 +409,20 @@ func (a *Azure) GetGroups() AzureError {
     logger.Info("Fetching Azure groups")
 
     if a.Groups == nil {
-        a.Groups = make([]AzureGroups, 5)
+        a.Groups = make(map[string]Group)
     }
 
-    if groups, err := a.getGroups(); ! err.Ok() {
+    var next string
+
+    if groups, err := a.getGroups( next ); ! err.Ok() {
         return err
     } else {
-        a.Groups = append( a.Groups, groups )
+        for _, group := range groups.Value {
+            a.Groups[group.Id] = Group{AzGroup: group}
+        }
     }
 
-    logger.Info("Fetched ", len(a.Groups[len(a.Groups)-1].Value), " Azure groups")
+    logger.Info("Fetched ", len(a.Groups), " Azure groups")
 
     return AzureError{}
 }
@@ -426,46 +432,46 @@ func (a *Azure) GetAllGroups() AzureError {
     logger.Info("Fetching Azure groups")
 
     if a.Groups == nil {
-        a.Groups = make([]AzureGroups, 5)
+        a.Groups = make(map[string]Group)
     }
 
-    for moregroups := true; moregroups; moregroups = a.MoreGroups() {
-        if groups, err := a.getGroups(); ! err.Ok() {
+    var next string
+
+    for moregroups := true; moregroups; moregroups = len(next) > 0 {
+        if groups, err := a.getGroups( next ); ! err.Ok() {
             return err
         } else {
-            a.Groups = append( a.Groups, groups )
+            for _, group := range groups.Value {
+                if _, ok := a.Groups[group.Id]; ! ok {
+                    a.Groups[group.Id] = Group{AzGroup: group}
+                } else {
+                    // TODO Duplicate top level group found
+                }
+            }
+
+            next = groups.OdataNextLink
         }
     }
 
-    logger.Info("Fetched ", len(a.Groups[len(a.Groups)-1].Value), " Azure groups")
+    logger.Info("Fetched ", len(a.Groups), " Azure groups")
 
     return AzureError{}
 }
 
-func (a *Azure) MoreGroups() bool {
-    if a.Groups == nil {
-        return false
-    }
-
-    if len(a.Groups[len(a.Groups)-1].OdataNextLink) > 0 {
-        return true
-    } else {
-        return false
-    }
-}
-
-func (a *Azure) getGroupMembers(id, name string) (AzureGroupMembers,AzureGroupMembers,AzureError) {
+func (a *Azure) getGroupMembers(id, next string) (AzureGroupMembers,AzureGroupMembers,AzureError) {
 
     var rurl string
 
-    if a.Members == nil {
-        a.Members = make([]AzureGroupMembers, 1)
+    group := a.Groups[id]
+
+    if group.AzMembers == nil {
+        group.AzMembers = make([]AzureGroupMembers, 1)
     }
 
-    if len(a.Members) == 0 || len(a.Members[len(a.Members)-1].OdataNextLink) == 0 {
+    if len(next) == 0 {
         rurl = "https://graph.microsoft.com/v1.0/groups/" + id + "/members"
     } else {
-        rurl = a.Members[len(a.Members)-1].OdataNextLink
+        rurl = next
     }
 
     logger.Debug("Request URL: ", rurl)
@@ -533,80 +539,90 @@ func (a *Azure) getGroupMembers(id, name string) (AzureGroupMembers,AzureGroupMe
         } else if member.OdataType == "#microsoft.graph.group" {
             groups.Value = append( groups.Value, member )
         } else {
-            logger.Warn( "Found unsupported OdataType in group ", name )
+            logger.Warn( "Found unsupported OdataType in group ", group.AzGroup.DisplayName )
         }
     }
 
     return members,groups,AzureError{}
 }
 
-func (a *Azure) GetGroupMembers(id, name string) AzureError {
+func (a *Azure) GetGroupMembers(id string) AzureError {
 
-    logger.Info("Fetching Azure group members for: ", name)
-
-    if a.Members != nil && len(a.Members) != 0 {
-        a.Members = a.Members[:0]
-    }
-    if a.Nested != nil && len(a.Nested) != 0 {
-        a.Nested = a.Nested[:0]
+    if _, ok := a.Groups[id]; ! ok {
+        return AzureError{ Err: errors.New("Cannot fetch group members for group " + id + ", the group was not already fetched" ) }
     }
 
-    if members, groups, err := a.getGroupMembers(id, name); ! err.Ok() {
+    group := a.Groups[id]
+
+    logger.Info("Fetching Azure group members for: ", group.AzGroup.DisplayName)
+
+    if group.AzMembers != nil && len(group.AzMembers) > 0 {
+        group.AzMembers = group.AzMembers[:0]
+    }
+    if group.AzNested != nil && len(group.AzNested) > 0 {
+        group.AzNested = group.AzNested[:0]
+    }
+
+    var next string
+
+    if members, groups, err := a.getGroupMembers(id, next); ! err.Ok() {
         return err
     } else {
-        a.Members = append( a.Members, members )
-        a.Nested  = append( a.Nested,  groups  )
+        group.AzMembers = append( group.AzMembers, members )
+        group.AzNested  = append( group.AzNested,  groups  )
+
+        a.Groups[id] = group
 
         if len(members.Value) > 0 {
-            logger.Info("Fetched ", len(members.Value), " Azure group members for: ", name)
+            logger.Info("Fetched ", len(members.Value), " Azure group members for: ", group.AzGroup.DisplayName)
         }
         if len(groups.Value) > 0 {
-            logger.Info("Fetched ", len(groups.Value), " Azure nested groups for: ", name)
+            logger.Info("Fetched ", len(groups.Value), " Azure nested groups for: ", group.AzGroup.DisplayName)
         }
     }
 
     return AzureError{}
 }
 
-func (a *Azure) GetAllGroupMembers(id, name string) AzureError {
+func (a *Azure) GetAllGroupMembers(id string) AzureError {
 
-    logger.Info("Fetching Azure group members for: ", name)
-
-    if a.Members != nil && len(a.Members) != 0 {
-        a.Members = a.Members[:0]
-    }
-    if a.Nested != nil && len(a.Nested) != 0 {
-        a.Nested = a.Nested[:0]
+    if _, ok := a.Groups[id]; ! ok {
+        return AzureError{ Err: errors.New("Cannot fetch group members for group " + id + ", the group was not already fetched" ) }
     }
 
-    for moremembers := true; moremembers; moremembers = a.MoreMembers() {
-        if members, groups, err := a.getGroupMembers(id, name); ! err.Ok() {
+    group := a.Groups[id]
+
+    logger.Info("Fetching Azure group members for: ", group.AzGroup.DisplayName)
+
+    if group.AzMembers != nil && len(group.AzMembers) > 0 {
+        group.AzMembers = group.AzMembers[:0]
+    }
+    if group.AzNested != nil && len(group.AzNested) > 0 {
+        group.AzNested = group.AzNested[:0]
+    }
+
+    var next string
+
+    for moremembers := true; moremembers; moremembers = len(next) > 0 {
+        if members, groups, err := a.getGroupMembers(id, next); ! err.Ok() {
             return err
         } else {
-            a.Members = append( a.Members, members )
-            a.Nested  = append( a.Nested,  groups  )
+            group.AzMembers = append( group.AzMembers, members )
+            group.AzNested  = append( group.AzNested,  groups  )
+
+            a.Groups[id] = group
 
             if len(members.Value) > 0 {
-                logger.Info("Fetched ", len(members.Value), " Azure group members for: ", name)
+                logger.Info("Fetched ", len(members.Value), " Azure group members for: ", group.AzGroup.DisplayName)
             }
             if len(groups.Value) > 0 {
-                logger.Info("Fetched ", len(groups.Value), " Azure nested groups for: ", name)
+                logger.Info("Fetched ", len(groups.Value), " Azure nested groups for: ", group.AzGroup.DisplayName)
             }
+
+            next = groups.OdataNextLink
         }
     }
 
     return AzureError{}
-}
-
-func (a *Azure) MoreMembers() bool {
-    if a.Members == nil {
-        return false
-    }
-
-    if len(a.Members[len(a.Members)-1].OdataNextLink) > 0 {
-        return true
-    } else {
-        return false
-    }
 }
 

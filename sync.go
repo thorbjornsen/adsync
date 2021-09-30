@@ -79,9 +79,6 @@ type Adsync struct {
     // Used to track existing Ranger groups
     rangerGroups map[string]int
 
-    // Used to cache the nested groups
-    nestedGroups map[string]int
-
     // Used to cache the groups that have already been created
     createdGroups map[string]int
 
@@ -173,9 +170,6 @@ func (a *Adsync) getAzureGroups() AdsyncError {
 }
 
 func (a *Adsync) getAzureGroupMembers( id, name string ) AdsyncError {
-    // Clear any existing group member info
-    a.azure.Members = nil
-
     //
     // Retries are required. If 401 is returned for any reason other than invalid token, causes an infinite loop without retries
     //
@@ -184,7 +178,7 @@ func (a *Adsync) getAzureGroupMembers( id, name string ) AdsyncError {
             return AdsyncError{ Err: errors.New( "Exceeded maximum number of authorization retries" ) }
         }
 
-        if err := a.azure.GetAllGroupMembers(id, name); !err.Ok() {
+        if err := a.azure.GetAllGroupMembers(id); !err.Ok() {
             if err.Unauthorized() {
                 // Authorization probably expired
                 if err := a.azure.GetAuthorization(); !err.Ok() {
@@ -201,39 +195,34 @@ func (a *Adsync) getAzureGroupMembers( id, name string ) AdsyncError {
     return AdsyncError{}
 }
 
-func (a *Adsync) processAzureGroup( group AzureGroup ) AdsyncError {
+func (a *Adsync) preProcessAzureGroup( group AzureGroup ) AdsyncError {
     //
     // Id and DisplayName are required
     //
     if group.Id == "" {
-        return AdsyncError{ Err: errors.New( "Azure group doesn't have an Id" ) }
+        return AdsyncError{Err: errors.New("Azure group doesn't have an Id")}
     }
     if group.DisplayName == "" {
-        return AdsyncError{ Err: errors.New( "Azure group doesn't have a display name: : " + group.Id ) }
-    }
-
-    //
-    // Check if the group had already been created
-    //
-    if a.createdGroups[group.Id] != 0 {
-        logger.Warn( "Azure group ", group.DisplayName, " had already been created. Skipping" )
-        return AdsyncError{}
+        return AdsyncError{Err: errors.New("Azure group doesn't have a display name: : " + group.Id)}
     }
 
     //
     // Fetch the group members for this group
     //
-    if err := a.getAzureGroupMembers( group.Id, group.DisplayName ); ! err.Ok() {
-        return AdsyncError{ Err: errors.New( "Cannot fetch groups members from Azure: " + err.Error() ) }
+    if err := a.getAzureGroupMembers(group.Id, group.DisplayName); !err.Ok() {
+        return AdsyncError{Err: errors.New("Cannot fetch groups members from Azure: " + err.Error())}
     }
 
+    return AdsyncError{}
+}
+
+func (a *Adsync) processAzureGroup( group AzureGroup, members []AzureGroupMembers ) AdsyncError {
     //
-    // Store the nested groups for processing later
+    // Check if the group had already been created
     //
-    for _, nslice := range a.azure.Nested {
-        for _, nested := range nslice.Value {
-            a.nestedGroups[nested.Id] += 1
-        }
+    if a.createdGroups[group.Id] != 0 {
+        logger.Warn("Azure group ", group.DisplayName, " had already been created. Skipping")
+        return AdsyncError{}
     }
 
     // Track users seen in this group
@@ -253,7 +242,7 @@ func (a *Adsync) processAzureGroup( group AzureGroup ) AdsyncError {
     //
     // Create the users from the Azure info
     //
-    for _, uslice := range a.azure.Members {
+    for _, uslice := range members {
         for _, user := range uslice.Value {
 
             if user.OdataType != "#microsoft.graph.user" {
@@ -264,6 +253,13 @@ func (a *Adsync) processAzureGroup( group AzureGroup ) AdsyncError {
             if user.UserPrincipalName == "" {
                 logger.Error("Azure AD User doesn't have a name: ", user.Id)
                 continue
+            }
+
+            // Mark user as part of this group
+            if _, ok := check[user.UserPrincipalName]; ok {
+                logger.Debug( "Duplicate user ", user.UserPrincipalName, " found as member of group ", group.DisplayName )
+            } else {
+                check[user.UserPrincipalName] = 1
             }
 
             guinfo.XuserInfo = append(guinfo.XuserInfo, struct {
@@ -286,7 +282,7 @@ func (a *Adsync) processAzureGroup( group AzureGroup ) AdsyncError {
     }
 
     if len(guinfo.XuserInfo) == 0 {
-        logger.Info("Azure group ", group.DisplayName, " does not contain any users.")
+        logger.Info("Azure group ", group.DisplayName, " does not contain any users")
         return AdsyncError{}
     }
 
@@ -357,61 +353,67 @@ func (a *Adsync) groupUserSync() {
     }
 
     //
-    // Loop over all the groups cached in the Azure object
+    // Preprocess each top level group to gather users and any nested groups
     //
-    for _, gslice := range a.azure.Groups {
-        for _, group := range gslice.Value {
-            if err := a.processAzureGroup( group ); ! err.Ok() {
-                logger.Error( err )
-                return
-            }
-        }
-    }
-
-    //
-    // Need to make a copy of the nested groups to work from
-    //
-    nestedGroups := make(map[string]int)
-
-    for id, count := range a.nestedGroups {
-        nestedGroups[id] = count
-    }
-
-    a.nestedGroups = make(map[string]int)
-
-    //
-    // Loop over all the cached nested groups
-    //
-    for id, count := range nestedGroups {
-        if count <= 0 {
-            continue
-        }
-
-        if group, err := a.getAzureGroup( id ); ! err.Ok() {
+    for _, group := range a.azure.Groups {
+        if err := a.preProcessAzureGroup( group.AzGroup ); ! err.Ok() {
             logger.Error( err )
             return
-        } else {
-            //
-            // TODO Need to do manual filtering of the group name
-            //
+        }
+    }
 
-            if err := a.processAzureGroup( group ); ! err.Ok() {
-                logger.Error( err )
-                return
+    //
+    // Process the nested group information
+    //
+    for _, top := range a.azure.Groups {
+        for _, nslice := range top.AzNested {
+            for _, nested := range nslice.Value {
+                if group, err := a.getAzureGroup( nested.Id ); ! err.Ok() {
+                    logger.Error( err )
+                    return
+                } else {
+                    //
+                    // TODO Need to do manual filtering of the nested group name?
+                    //
+
+                    //
+                    // Do some additional stuff if the group doesn't already exist
+                    //
+                    if _, ok := a.azure.Groups[group.Id]; ! ok {
+                        logger.Debug( "Nested group ", group.DisplayName, " added to list of groups to process" )
+
+                        // Add the group to the map of groups
+                        a.azure.Groups[group.Id] = Group{ AzGroup: group }
+
+                        //
+                        // Get the users associated with this group
+                        //
+                        if err := a.preProcessAzureGroup( group ); ! err.Ok() {
+                            logger.Error( err )
+                            return
+                        }
+                    }
+
+                    //
+                    // Add the users from the nested group to the parent/top group
+                    //
+                    for _, member := range a.azure.Groups[group.Id].AzMembers {
+                        top.AzMembers = append( top.AzMembers, member )
+                    }
+
+                    a.azure.Groups[top.AzGroup.Id] = top
+                }
             }
         }
     }
 
     //
-    // Dont support multiple levels of group nesting, so report if any were seen
+    // Process each group
     //
-    if len(a.nestedGroups) > 0 {
-        logger.Warn( len(a.nestedGroups), " groups were found within the nested groups. Multilayered nesting is not supported.")
-
-        if logger.isDebug() {
-            for id, _ := range a.nestedGroups {
-                logger.Debug( "Group ", id, " found within a nested group")
-            }
+    for _, group := range a.azure.Groups {
+        if err := a.processAzureGroup( group.AzGroup, group.AzMembers ); ! err.Ok() {
+            logger.Error( err )
+            return
         }
     }
 
@@ -497,7 +499,7 @@ func GroupUserSync() {
     client := HttpClient()
 
     // Create an Adsync object
-    async := Adsync{ client: client, createdGroups: make(map[string]int,5), nestedGroups: make(map[string]int,5), groupUsers: make(map[string]int,5) }
+    async := Adsync{ client: client, createdGroups: make(map[string]int,5), groupUsers: make(map[string]int,5) }
 
     // Run the sync
     async.groupUserSync()
