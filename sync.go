@@ -418,7 +418,7 @@ func (a *Adsync) groupUserSync() {
         }
     }
 
-    f, err2 := os.Create("/tmp/groups/test.txt")
+    f, err2 := os.Create("/tmp/groups/adsync-groups.txt")
     if err2 != nil {
         panic(err2)
     }
@@ -426,6 +426,11 @@ func (a *Adsync) groupUserSync() {
     logger.Info("Starting local file")
     for _, group := range a.azure.Groups {
         f.WriteString(group.AzGroup.DisplayName)
+        f.WriteString(":")
+        for _, member := range a.azure.Groups[group.AzGroup.Id].AzMembers {
+            f.WriteString(member.OdataContext)
+            f.WriteString(",")
+        }
         f.WriteString("\n")
         f.Sync()
         logger.Info(group.AzGroup.DisplayName)
