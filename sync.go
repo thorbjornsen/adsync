@@ -443,7 +443,10 @@ func (a *Adsync) groupUserSync() {
             logger.Info("Adding group ", group.AzGroup.DisplayName, "to local group file")
         }
         logger.Info("Ending local file")
-        os.Rename(tempFile, fileName)
+        if err := os.Rename(tempFile, fileName); err != nil {
+            os.Remove(tempFile)
+            panic(err)
+        }
     }
 
     //
