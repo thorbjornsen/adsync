@@ -421,7 +421,9 @@ func (a *Adsync) groupUserSync() {
     // Create file for group provider, if requested
     //
     if config.GroupFile.CreateGroupFile {
-        f, err2 := os.Create(config.GroupFile.GroupFilePath)
+        tempFile := config.GroupFile.GroupFilePath + "tmp_" + config.GroupFile.GroupFileName
+        fileName := config.GroupFile.GroupFilePath + config.GroupFile.GroupFileName
+        f, err2 := os.Create(tempFile)
         if err2 != nil {
             panic(err2)
         }
@@ -441,6 +443,7 @@ func (a *Adsync) groupUserSync() {
             logger.Info("Adding group ", group.AzGroup.DisplayName, "to local group file")
         }
         logger.Info("Ending local file")
+        os.Rename(tempFile, fileName)
     }
 
     //

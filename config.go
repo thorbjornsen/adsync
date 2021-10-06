@@ -45,6 +45,7 @@ type TlsConfig struct {
 type GroupFileConfig struct {
     CreateGroupFile     bool
     GroupFilePath       string
+    GroupFileName       string
 }
 
 type Config struct {
@@ -256,6 +257,12 @@ func NewConfig() Config {
         groupFilePath = gf
     }
 
+    var groupFileName string
+    gn, present := os.LookupEnv("GROUP_FILE_NAME")
+    if present {
+        groupFileName = gn
+    }
+
     //
     // Sanity check
     //
@@ -296,6 +303,7 @@ func NewConfig() Config {
         GroupFile: GroupFileConfig {
             CreateGroupFile:    createGroupFile,
             GroupFilePath:      groupFilePath,
+            GroupFileName:      groupFileName,
         },
     }
 }
