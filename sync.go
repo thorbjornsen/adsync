@@ -431,6 +431,8 @@ func (a *Adsync) groupUserSync() {
         logger.Info(group.AzGroup.Id)
     }
 
+    time.Sleep(300 * time.Second)
+
 
 
     //
