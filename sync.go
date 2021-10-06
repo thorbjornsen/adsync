@@ -425,10 +425,10 @@ func (a *Adsync) groupUserSync() {
     defer f.Close()
     logger.Info("Starting local file")
     for _, group := range a.azure.Groups {
-        f.WriteString(group.AzGroup.Id)
+        f.WriteString(group.AzGroup.DisplayName)
         f.WriteString("\n")
         f.Sync()
-        logger.Info(group.AzGroup.Id)
+        logger.Info(group.AzGroup.DisplayName)
     }
 
     time.Sleep(300 * time.Second)
