@@ -427,18 +427,17 @@ func (a *Adsync) groupUserSync() {
     for _, group := range a.azure.Groups {
         f.WriteString(group.AzGroup.DisplayName)
         f.WriteString(":")
-        for _, member := range a.azure.Groups[group.AzGroup.Id].AzMembers {
-            f.WriteString(member.OdataContext)
-            f.WriteString(",")
+        for _, uslice := range group.AzMembers {
+            for _, user := range uslice.Value {
+                f.WriteString(user.UserPrincipalName)
+                f.WriteString(",")
+            }
         }
         f.WriteString("\n")
         f.Sync()
         logger.Info(group.AzGroup.DisplayName)
     }
-
-    time.Sleep(300 * time.Second)
-
-
+    
 
     //
     // Remove any groups in Ranger that weren't in Azure
