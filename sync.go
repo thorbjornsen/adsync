@@ -417,27 +417,31 @@ func (a *Adsync) groupUserSync() {
             return
         }
     }
-
-    f, err2 := os.Create("/tmp/groups/adsync-groups.txt")
-    if err2 != nil {
-        panic(err2)
-    }
-    defer f.Close()
-    logger.Info("Starting local file")
-    for _, group := range a.azure.Groups {
-        f.WriteString(group.AzGroup.DisplayName)
-        f.WriteString(":")
-        for _, uslice := range group.AzMembers {
-            for _, user := range uslice.Value {
-                f.WriteString(user.UserPrincipalName)
-                f.WriteString(",")
-            }
+    //
+    // Create file for group provider, if requested
+    //
+    if config.GroupFile.CreateGroupFile {
+        f, err2 := os.Create(config.GroupFile.GroupFilePath)
+        if err2 != nil {
+            panic(err2)
         }
-        f.WriteString("\n")
-        f.Sync()
-        logger.Info(group.AzGroup.DisplayName)
+        defer f.Close()
+        logger.Info("Starting local file")
+        for _, group := range a.azure.Groups {
+            f.WriteString(group.AzGroup.DisplayName)
+            f.WriteString(":")
+            for _, uslice := range group.AzMembers {
+                for _, user := range uslice.Value {
+                    f.WriteString(user.UserPrincipalName)
+                    f.WriteString(",")
+                }
+            }
+            f.WriteString("\n")
+            f.Sync()
+            logger.Info("Adding group ", group.AzGroup.DisplayName, "to local group file")
+        }
+        logger.Info("Ending local file")
     }
-    
 
     //
     // Remove any groups in Ranger that weren't in Azure
