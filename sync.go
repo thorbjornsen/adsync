@@ -6,6 +6,7 @@ import (
     "errors"
     "io/ioutil"
     "net/http"
+    "os"
     "sync"
     "time"
 )
@@ -416,6 +417,21 @@ func (a *Adsync) groupUserSync() {
             return
         }
     }
+
+    f, err2 := os.Create("/tmp/groups/test.txt")
+    if err2 != nil {
+        panic(err2)
+    }
+    defer f.Close()
+    logger.Info("Starting local file")
+    for _, group := range a.azure.Groups {
+        f.WriteString(group.AzGroup.Id)
+        f.WriteString("\n")
+        f.Sync()
+        logger.Info(group.AzGroup.Id)
+    }
+
+
 
     //
     // Remove any groups in Ranger that weren't in Azure
