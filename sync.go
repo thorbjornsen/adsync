@@ -6,6 +6,7 @@ import (
     "errors"
     "io/ioutil"
     "net/http"
+    "os"
     "sync"
     "time"
 )
@@ -414,6 +415,37 @@ func (a *Adsync) groupUserSync() {
         if err := a.processAzureGroup( group.AzGroup, group.AzMembers ); ! err.Ok() {
             logger.Error( err )
             return
+        }
+    }
+    //
+    // Create file for group provider, if requested
+    //
+    if config.GroupFile.CreateGroupFile {
+        tempFile := config.GroupFile.GroupFilePath + "tmp_" + config.GroupFile.GroupFileName
+        fileName := config.GroupFile.GroupFilePath + config.GroupFile.GroupFileName
+        f, err2 := os.Create(tempFile)
+        if err2 != nil {
+            panic(err2)
+        }
+        defer f.Close()
+        logger.Info("Starting local file")
+        for _, group := range a.azure.Groups {
+            f.WriteString(group.AzGroup.DisplayName)
+            f.WriteString(":")
+            for _, uslice := range group.AzMembers {
+                for _, user := range uslice.Value {
+                    f.WriteString(user.UserPrincipalName)
+                    f.WriteString(",")
+                }
+            }
+            f.WriteString("\n")
+            f.Sync()
+            logger.Info("Adding group ", group.AzGroup.DisplayName, "to local group file")
+        }
+        logger.Info("Ending local file")
+        if err := os.Rename(tempFile, fileName); err != nil {
+            os.Remove(tempFile)
+            panic(err)
         }
     }
 

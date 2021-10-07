@@ -42,11 +42,18 @@ type TlsConfig struct {
     AdditionalCertificatesPemFilename string
 }
 
+type GroupFileConfig struct {
+    CreateGroupFile     bool
+    GroupFilePath       string
+    GroupFileName       string
+}
+
 type Config struct {
     Azure   AzureConfig
     Ranger  RangerConfig
     General GeneralConfig
     Tls     TlsConfig
+    GroupFile GroupFileConfig
 }
 
 func NewConfig() Config {
@@ -232,6 +239,30 @@ func NewConfig() Config {
         certFilename = c
     }
 
+    //File Group Provider Config
+    createGroupFile := false
+    cg, present := os.LookupEnv("CREATE_GROUP_FILE")
+    if present {
+        if i, e := strconv.ParseBool(cg); e != nil {
+            logger.Error("CREATE_GROUP_FILE is not a valid bool")
+            ok = false
+        } else {
+            createGroupFile = i
+        }
+    }
+
+    var groupFilePath string
+    gf, present := os.LookupEnv("GROUP_FILE_PATH")
+    if present {
+        groupFilePath = gf
+    }
+
+    var groupFileName string
+    gn, present := os.LookupEnv("GROUP_FILE_NAME")
+    if present {
+        groupFileName = gn
+    }
+
     //
     // Sanity check
     //
@@ -268,6 +299,11 @@ func NewConfig() Config {
         Tls: TlsConfig{
             InsecureSkipVerify:                insecureSkipVerify,
             AdditionalCertificatesPemFilename: certFilename,
+        },
+        GroupFile: GroupFileConfig {
+            CreateGroupFile:    createGroupFile,
+            GroupFilePath:      groupFilePath,
+            GroupFileName:      groupFileName,
         },
     }
 }
