@@ -619,7 +619,7 @@ func (a *Azure) GetAllGroupMembers(id string) AzureError {
                 logger.Info("Fetched ", len(groups.Value), " Azure nested groups for: ", group.AzGroup.DisplayName)
             }
 
-            next = groups.OdataNextLink
+            next = members.OdataNextLink
         }
     }
 
