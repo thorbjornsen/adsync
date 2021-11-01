@@ -7,6 +7,7 @@ import (
     "io"
     "io/ioutil"
     "net/http"
+    "net/url"
     "strconv"
     "time"
 )
@@ -473,6 +474,7 @@ func GetGroupUsers( client *http.Client, name string ) (VXGroupUserInfo,RangerEr
 
     logger.Info("Fetching Ranger group users for group: ", name)
 
+    // URLencoded the user value
     url := config.Ranger.Host + config.Ranger.GroupUsersUri + name
 
     logger.Debug("Request URL: ", url)
@@ -547,9 +549,10 @@ func GetGroupUsers( client *http.Client, name string ) (VXGroupUserInfo,RangerEr
 
 func DeleteGroupUser( client *http.Client, group string, user string ) RangerError {
 
-    logger.Info("Deleting Ranger group user for group; ", group, " name: ", user)
+    logger.Info("Deleting Ranger group user for group: ", group, " name: ", user)
 
-    url := config.Ranger.Host + config.Ranger.GroupUserUri + group + "/user/" + user
+    // URLencoded the user value
+    url := config.Ranger.Host + config.Ranger.GroupUserUri + group + "/user/" + url.QueryEscape(user)
 
     logger.Debug("Request URL: ", url)
 
