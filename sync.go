@@ -294,8 +294,33 @@ func (a *Adsync) processAzureGroup( group AzureGroup, members []AzureGroupMember
     // Send the group info
     //
     if a.createdGroups[group.Id] == 0 {
-        if err := CreateGroupInfo(a.client, guinfo); !err.Ok() {
-            return AdsyncError{ Err: errors.New( "Problem creating group info: " + err.Error() ) }
+        limit := config.Ranger.GroupInfoLimit
+
+        //
+        // Check if configuration limits the number of users per request
+        //
+        if limit > 0 {
+            guinfoslice := VXGroupUserInfo{}
+
+            // Reuse the group info
+            guinfoslice.XgroupInfo = guinfo.XgroupInfo
+
+            // Loop over subslices of the userinfo based on the configured limit
+            for start, end := 0, limit; start < len(guinfo.XuserInfo); start, end = start+limit, end+limit {
+                if end > len(guinfo.XuserInfo) {
+                    end = len(guinfo.XuserInfo)
+                }
+
+                guinfoslice.XuserInfo = guinfo.XuserInfo[start:end]
+
+                if err := CreateGroupInfo(a.client, guinfoslice); !err.Ok() {
+                    return AdsyncError{ Err: errors.New( "Problem creating group info: " + err.Error() ) }
+                }
+            }
+        } else {
+            if err := CreateGroupInfo(a.client, guinfo); !err.Ok() {
+                return AdsyncError{ Err: errors.New( "Problem creating group info: " + err.Error() ) }
+            }
         }
 
         // Increment the count for that specific group

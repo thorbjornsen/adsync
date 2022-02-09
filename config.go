@@ -30,6 +30,8 @@ type RangerConfig struct {
     GroupUserUri   string
     GroupDeleteUri string
 
+    GroupInfoLimit int
+
     Headers        map[string]string
 }
 
@@ -188,6 +190,18 @@ func NewConfig() Config {
         groupDeleteUri += "/"
     }
 
+    groupInfoLimit := 0
+
+    limit, present := os.LookupEnv("RANGER_GROUP_INFO_LIMIT")
+    if present {
+        if i, e := strconv.Atoi(limit); e != nil {
+            logger.Error("RANGER_GROUP_INFO_LIMIT is not a valid number")
+            ok = false
+        } else {
+            groupInfoLimit = i
+        }
+    }
+
     //
     // General config
     //
@@ -292,6 +306,7 @@ func NewConfig() Config {
             GroupInfoUri:   groupInfoUri,
             GroupUserUri:   groupUserUri,
             GroupDeleteUri: groupDeleteUri,
+            GroupInfoLimit: groupInfoLimit,
         },
         General: GeneralConfig {
             Threads: threads,
