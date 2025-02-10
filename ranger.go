@@ -1,688 +1,839 @@
 package adsync
 
 import (
-    "bytes"
-    "encoding/json"
-    "errors"
-    "io"
-    "io/ioutil"
-    "net/http"
-    "net/url"
-    "strconv"
-    "time"
+	"bytes"
+	"encoding/json"
+	"errors"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"strconv"
+	"time"
 )
+
 //
 // /service/users/default
 //
 type VXPortalUser struct {
-    LoginId      string  `json:"loginId"`
-    EmailAddress string  `json:"emailAddress"`
-    FirstName    string  `json:"firstName"`
-    LastName     string  `json:"lastName"`
-    UserSource   uint    `json:"userSource"`
-    Id           uint    `json:"id"`
+	LoginId      string `json:"loginId"`
+	EmailAddress string `json:"emailAddress"`
+	FirstName    string `json:"firstName"`
+	LastName     string `json:"lastName"`
+	UserSource   uint   `json:"userSource"`
+	Id           uint   `json:"id"`
 }
+
+type VXUsers struct {
+	VXUsers []struct {
+		Name         string `json:"name"`
+		FirstName    string `json:"firstName"`
+		LastName     string `json:"lastName"`
+		EmailAddress string `json:"emailAddress"`
+		Password     string `json:"password"`
+		Description  string `json:"description"`
+		CredStoreId  int    `json:"credStoreId"`
+		GroupIdList  []struct {
+		} `json:"groupIdList"`
+		MyClassType  int `json:"myClassType"`
+		Status       int `json:"status"`
+		IsVisible    int `json:"isVisible"`
+		UserSource   int `json:"userSource"`
+		USerRoleList []struct {
+		} `json:"userRoleList"`
+		GroupNameList []struct {
+		} `json:"groupNameList"`
+		OtherAttributes string    `json:"otherAttributes"`
+		SyncSource      string    `json:"syncSource"`
+		Id              int       `json:"id"`
+		CreateDate      time.Time `json:"createDate"`
+		UpdateDate      time.Time `json:"updateDate"`
+		Owner           string    `json:"owner"`
+		UpdatedBy       string    `json:"updatedBy"`
+	} `json:"vXUsers"`
+	ListSize int `json:"listSize"`
+	List     []struct {
+	} `json:"list"`
+	StartIndex int    `json:"startIndex"`
+	PageSize   int    `json:"pageSize"`
+	TotalCount int    `json:"totalCount"`
+	ResultSize int    `json:"resultSize"`
+	SortType   string `json:"sortType"`
+	SortBy     string `json:"sortBy"`
+}
+
 //
 // /service/xusers/users/userinfo
 //
 type VXUserGroupInfo struct {
-    XuserInfo struct {
-        Name          string   `json:"name"`
-        Description   string   `json:"description"`
-        GroupNameList []string `json:"groupNameList"`
-        UserRoleList  []string `json:"userRoleList"`
-    } `json:"xuserInfo"`
-    XgroupInfo []struct {
-        Name          string   `json:"name"`
-        Description   string   `json:"description"`
-    } `json:"xgroupInfo"`
+	XuserInfo struct {
+		Name          string   `json:"name"`
+		Description   string   `json:"description"`
+		GroupNameList []string `json:"groupNameList"`
+		UserRoleList  []string `json:"userRoleList"`
+	} `json:"xuserInfo"`
+	XgroupInfo []struct {
+		Name        string `json:"name"`
+		Description string `json:"description"`
+	} `json:"xgroupInfo"`
 }
+
 //
 // /service/xusers/groups
 //
 type VXGroup []struct {
-    Name        string `json:"name"`
-    Description string `json:"description"`
-    GroupType   int    `json:"groupType"`
-    CredStoreId int    `json:"credStoreId"`
-    IsVisible   int    `json:"isVisible"`
-    MyClassType int    `json:"myClassType"`
-    GroupSource int    `json:"groupSource"`
-    Id          int    `json:"id"`
-    CreateDate  time.Time `json:"createDate"`
-    UpdateDate  time.Time `json:"updateDate"`
-    Owner       string `json:"owner"`
-    UpdatedBy   string `json:"updatedBy"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	GroupType   int       `json:"groupType"`
+	CredStoreId int       `json:"credStoreId"`
+	IsVisible   int       `json:"isVisible"`
+	MyClassType int       `json:"myClassType"`
+	GroupSource int       `json:"groupSource"`
+	Id          int       `json:"id"`
+	CreateDate  time.Time `json:"createDate"`
+	UpdateDate  time.Time `json:"updateDate"`
+	Owner       string    `json:"owner"`
+	UpdatedBy   string    `json:"updatedBy"`
 }
 
 type VXGroups struct {
-    VXGroups []struct {
-        Name        string `json:"name"`
-        Description string `json:"description"`
-        GroupType   int    `json:"groupType"`
-        CredStoreId int    `json:"credStoreId"`
-        IsVisible   int    `json:"isVisible"`
-        MyClassType int    `json:"myClassType"`
-        GroupSource int    `json:"groupSource"`
-        Id          int    `json:"id"`
-        CreateDate  time.Time `json:"createDate"`
-        UpdateDate  time.Time `json:"updateDate"`
-        Owner       string `json:"owner"`
-        UpdatedBy   string `json:"updatedBy"`
-    } `json:"vXGroups"`
-    ListSize int `json:"listSize"`
-    List     []struct {
-    } `json:"list"`
-    StartIndex int    `json:"startIndex"`
-    PageSize   int    `json:"pageSize"`
-    TotalCount int    `json:"totalCount"`
-    ResultSize int    `json:"resultSize"`
-    SortType   string `json:"sortType"`
-    SortBy     string `json:"sortBy"`
+	VXGroups []struct {
+		Name        string    `json:"name"`
+		Description string    `json:"description"`
+		GroupType   int       `json:"groupType"`
+		CredStoreId int       `json:"credStoreId"`
+		IsVisible   int       `json:"isVisible"`
+		MyClassType int       `json:"myClassType"`
+		GroupSource int       `json:"groupSource"`
+		Id          int       `json:"id"`
+		CreateDate  time.Time `json:"createDate"`
+		UpdateDate  time.Time `json:"updateDate"`
+		Owner       string    `json:"owner"`
+		UpdatedBy   string    `json:"updatedBy"`
+	} `json:"vXGroups"`
+	ListSize int `json:"listSize"`
+	List     []struct {
+	} `json:"list"`
+	StartIndex int    `json:"startIndex"`
+	PageSize   int    `json:"pageSize"`
+	TotalCount int    `json:"totalCount"`
+	ResultSize int    `json:"resultSize"`
+	SortType   string `json:"sortType"`
+	SortBy     string `json:"sortBy"`
 }
+
 //
 // /service/xusers/groupusers/groupName/{group}
 // /service/xusers/groups/groupinfo
 //
 type VXGroupUserInfo struct {
-    CreateDate time.Time `json:"createDate"`
-    UpdateDate time.Time `json:"updateDate"`
-    XgroupInfo struct {
-        Id          int       `json:"id"`
-        CreateDate  time.Time `json:"createDate"`
-        UpdateDate  time.Time `json:"updateDate"`
-        Owner       string    `json:"owner"`
-        UpdatedBy   string    `json:"updatedBy"`
-        Name        string    `json:"name"`
-        Description string    `json:"description"`
-        GroupType   int       `json:"groupType"`
-        GroupSource int       `json:"groupSource"`
-        IsVisible   int       `json:"isVisible"`
-    } `json:"xgroupInfo"`
-    XuserInfo []struct {
-        CreateDate    time.Time `json:"createDate"`
-        UpdateDate    time.Time `json:"updateDate"`
-        Name          string    `json:"name"`
-        Status        int       `json:"status"`
-        IsVisible     int       `json:"isVisible"`
-        UserSource    int       `json:"userSource"`
-        GroupNameList []string  `json:"groupNameList"`
-        UserRoleList  []string  `json:"userRoleList"`
-    } `json:"xuserInfo"`
+	CreateDate time.Time `json:"createDate"`
+	UpdateDate time.Time `json:"updateDate"`
+	XgroupInfo struct {
+		Id          int       `json:"id"`
+		CreateDate  time.Time `json:"createDate"`
+		UpdateDate  time.Time `json:"updateDate"`
+		Owner       string    `json:"owner"`
+		UpdatedBy   string    `json:"updatedBy"`
+		Name        string    `json:"name"`
+		Description string    `json:"description"`
+		GroupType   int       `json:"groupType"`
+		GroupSource int       `json:"groupSource"`
+		IsVisible   int       `json:"isVisible"`
+	} `json:"xgroupInfo"`
+	XuserInfo []struct {
+		CreateDate    time.Time `json:"createDate"`
+		UpdateDate    time.Time `json:"updateDate"`
+		Name          string    `json:"name"`
+		Status        int       `json:"status"`
+		IsVisible     int       `json:"isVisible"`
+		UserSource    int       `json:"userSource"`
+		GroupNameList []string  `json:"groupNameList"`
+		UserRoleList  []string  `json:"userRoleList"`
+	} `json:"xuserInfo"`
 }
+
 //
 // /service/xusers/ugsync/auditinfo
 //
 type VXUgsyncAuditInfo struct {
-    NoOfNewUsers       int    `json:"noOfNewUsers"`
-    NoOfNewGroups      int    `json:"noOfNewGroups"`
-    NoOfModifiedUsers  int    `json:"noOfModifiedUsers"`
-    NoOfModifiedGroups int    `json:"noOfModifiedGroups"`
-    SyncSource         string `json:"syncSource"`
-    LdapSyncSourceInfo struct {
-        LdapUrl                 string `json:"ldapUrl"`
-        IncrementalSycn         string `json:"incrementalSycn"`
-        GroupSearchFirstEnabled string `json:"groupSearchFirstEnabled"`
-        GroupSearchEnabled      string `json:"groupSearchEnabled"`
-        UserSearchEnabled       string `json:"userSearchEnabled"`
-        UserSearchFilter        string `json:"userSearchFilter"`
-        GroupSearchFilter       string `json:"groupSearchFilter"`
-        GroupHierarchyLevel     string `json:"groupHierarchyLevel"`
-        TotalUsersSynced        int    `json:"totalUsersSynced"`
-        TotalGroupsSynced       int    `json:"totalGroupsSynced"`
-    } `json:"ldapSyncSourceInfo"`
+	NoOfNewUsers       int    `json:"noOfNewUsers"`
+	NoOfNewGroups      int    `json:"noOfNewGroups"`
+	NoOfModifiedUsers  int    `json:"noOfModifiedUsers"`
+	NoOfModifiedGroups int    `json:"noOfModifiedGroups"`
+	SyncSource         string `json:"syncSource"`
+	LdapSyncSourceInfo struct {
+		LdapUrl                 string `json:"ldapUrl"`
+		IncrementalSycn         string `json:"incrementalSycn"`
+		GroupSearchFirstEnabled string `json:"groupSearchFirstEnabled"`
+		GroupSearchEnabled      string `json:"groupSearchEnabled"`
+		UserSearchEnabled       string `json:"userSearchEnabled"`
+		UserSearchFilter        string `json:"userSearchFilter"`
+		GroupSearchFilter       string `json:"groupSearchFilter"`
+		GroupHierarchyLevel     string `json:"groupHierarchyLevel"`
+		TotalUsersSynced        int    `json:"totalUsersSynced"`
+		TotalGroupsSynced       int    `json:"totalGroupsSynced"`
+	} `json:"ldapSyncSourceInfo"`
 }
 
-func CreatePortalUser( client *http.Client, user VXPortalUser ) RangerError {
+func CreatePortalUser(client *http.Client, user VXPortalUser) RangerError {
 
-    logger.Info("Creating Ranger portal user for: ", user.LoginId)
+	logger.Info("Creating Ranger portal user for: ", user.LoginId)
 
-    // Marshal the JSON for the portal user
-    portal, err := json.Marshal( user )
+	// Marshal the JSON for the portal user
+	portal, err := json.Marshal(user)
 
-    if err != nil {
-        logger.Debug("Problem marshaling the object: ", err)
-        return RangerError{ Err: err }
-    }
+	if err != nil {
+		logger.Debug("Problem marshaling the object: ", err)
+		return RangerError{Err: err}
+	}
 
-    url := config.Ranger.Host + config.Ranger.CreateUserUri
+	url := config.Ranger.Host + config.Ranger.CreateUserUri
 
-    logger.Debug("Request URL: ", url)
-    logger.Debug("Request Body: ", string(portal))
+	logger.Debug("Request URL: ", url)
+	logger.Debug("Request Body: ", string(portal))
 
-    // Create the POST request for the Ranger create API
-    req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(portal))
+	// Create the POST request for the Ranger create API
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(portal))
 
-    if err != nil {
-        logger.Debug("Problem creating the request: ", err)
-        return RangerError{ Err: err }
-    }
+	if err != nil {
+		logger.Debug("Problem creating the request: ", err)
+		return RangerError{Err: err}
+	}
 
-    // Add any user-supplied headers
-    for key, value := range config.Ranger.Headers {
-        req.Header.Set( key, value )
-    }
+	// Add any user-supplied headers
+	for key, value := range config.Ranger.Headers {
+		req.Header.Set(key, value)
+	}
 
-    // Work with JSON, Ranger API defaults to XML
-    req.Header.Set("Content-Type", "application/json")
-    req.Header.Set("Accept", "application/json")
+	// Work with JSON, Ranger API defaults to XML
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
 
-    logger.Debug("Request: ", req)
+	logger.Debug("Request: ", req)
 
-    // Check if authorization creds have been configured
-    if len(config.Ranger.User) != 0 && len(config.Ranger.Pass) != 0 {
-        // Need to add authorization
-        req.SetBasicAuth(config.Ranger.User, config.Ranger.Pass)
-    }
+	// Check if authorization creds have been configured
+	if len(config.Ranger.User) != 0 && len(config.Ranger.Pass) != 0 {
+		// Need to add authorization
+		req.SetBasicAuth(config.Ranger.User, config.Ranger.Pass)
+	}
 
-    // Execute the request
-    resp, err := client.Do(req)
+	// Execute the request
+	resp, err := client.Do(req)
 
-    if err != nil {
-        logger.Debug("Request returned an error: ", err)
-        return RangerError{ Err: err }
-    }
+	if err != nil {
+		logger.Debug("Request returned an error: ", err)
+		return RangerError{Err: err}
+	}
 
-    defer func( Body io.ReadCloser ) {
-        err := Body.Close()
-        if err != nil {
-            logger.Warn("Problem closing result reader: ", err)
-        }
-    } ( resp.Body );
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			logger.Warn("Problem closing result reader: ", err)
+		}
+	}(resp.Body)
 
-    // Only accepted status is 200, even if user already existed
-    if resp.StatusCode != http.StatusOK {
-        logger.Debug("Unexpected status code: ", resp.Status)
-        return RangerError{ resp.Status, resp.StatusCode, errors.New("Expected " + strconv.Itoa(http.StatusOK)) }
-    }
+	// Only accepted status is 200, even if user already existed
+	if resp.StatusCode != http.StatusOK {
+		logger.Debug("Unexpected status code: ", resp.Status)
+		return RangerError{resp.Status, resp.StatusCode, errors.New("Expected " + strconv.Itoa(http.StatusOK))}
+	}
 
-    //
-    // Read/verify the returned body, even though we dont need it
-    //
-    if body, err := ioutil.ReadAll( resp.Body ); err != nil {
-        logger.Warn("Problem reading the result: ", err)
-    } else if err = json.Unmarshal( body, &user ); err != nil {
-        logger.Warn("Problem unmarshaling the result: ", err)
-        logger.Debug("Result: ", string(body))
-    } else {
-        logger.Debug("Result: ", string(body))
-    }
+	//
+	// Read/verify the returned body, even though we dont need it
+	//
+	if body, err := ioutil.ReadAll(resp.Body); err != nil {
+		logger.Warn("Problem reading the result: ", err)
+	} else if err = json.Unmarshal(body, &user); err != nil {
+		logger.Warn("Problem unmarshaling the result: ", err)
+		logger.Debug("Result: ", string(body))
+	} else {
+		logger.Debug("Result: ", string(body))
+	}
 
-    logger.Info("Created Ranger portal user: ", user.LoginId)
+	logger.Info("Created Ranger portal user: ", user.LoginId)
 
-    return RangerError{}
+	return RangerError{}
 }
 
-func CreateUserInfo( client *http.Client, uginfo VXUserGroupInfo ) RangerError {
+func CreateUserInfo(client *http.Client, uginfo VXUserGroupInfo) RangerError {
 
-    logger.Info("Creating Ranger user info for user: ", uginfo.XuserInfo.Name)
+	logger.Info("Creating Ranger user info for user: ", uginfo.XuserInfo.Name)
 
-    // Marshal the JSON for the user info
-    info, err := json.Marshal( uginfo )
+	// Marshal the JSON for the user info
+	info, err := json.Marshal(uginfo)
 
-    if err != nil {
-        logger.Debug("Problem marshaling the object: ", err)
-        return RangerError{ Err: err }
-    }
+	if err != nil {
+		logger.Debug("Problem marshaling the object: ", err)
+		return RangerError{Err: err}
+	}
 
-    url := config.Ranger.Host + config.Ranger.UserInfoUri
+	url := config.Ranger.Host + config.Ranger.UserInfoUri
 
-    logger.Debug("Request URL: ", url)
-    logger.Debug("Request Body: ", string(info))
+	logger.Debug("Request URL: ", url)
+	logger.Debug("Request Body: ", string(info))
 
-    // Create the POST request for the Ranger create API
-    req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(info))
+	// Create the POST request for the Ranger create API
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(info))
 
-    if err != nil {
-        logger.Debug("Problem creating the request: ", err)
-        return RangerError{ Err: err }
-    }
+	if err != nil {
+		logger.Debug("Problem creating the request: ", err)
+		return RangerError{Err: err}
+	}
 
-    // Add any user-supplied headers
-    for key, value := range config.Ranger.Headers {
-        req.Header.Set( key, value )
-    }
+	// Add any user-supplied headers
+	for key, value := range config.Ranger.Headers {
+		req.Header.Set(key, value)
+	}
 
-    // Work with JSON, Ranger API defaults to XML
-    req.Header.Set("Content-Type", "application/json")
-    req.Header.Set("Accept", "application/json")
+	// Work with JSON, Ranger API defaults to XML
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
 
-    logger.Debug("Request: ", req)
+	logger.Debug("Request: ", req)
 
-    // Check if authorization creds have been configured
-    if len(config.Ranger.User) != 0 && len(config.Ranger.Pass) != 0 {
-        // Need to add authorization
-        req.SetBasicAuth(config.Ranger.User, config.Ranger.Pass)
-    }
+	// Check if authorization creds have been configured
+	if len(config.Ranger.User) != 0 && len(config.Ranger.Pass) != 0 {
+		// Need to add authorization
+		req.SetBasicAuth(config.Ranger.User, config.Ranger.Pass)
+	}
 
-    // Execute the request
-    resp, err := client.Do(req)
+	// Execute the request
+	resp, err := client.Do(req)
 
-    if err != nil {
-        logger.Debug("Request returned an error: ", err)
-        return RangerError{ Err: err }
-    }
+	if err != nil {
+		logger.Debug("Request returned an error: ", err)
+		return RangerError{Err: err}
+	}
 
-    defer func( Body io.ReadCloser ) {
-        err := Body.Close()
-        if err != nil {
-            logger.Warn("Problem closing result reader: ", err)
-        }
-    } ( resp.Body );
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			logger.Warn("Problem closing result reader: ", err)
+		}
+	}(resp.Body)
 
-    // Only accepted status is 200, even if user already existed
-    if resp.StatusCode != http.StatusOK {
-        logger.Debug("Unexpected status code: ", resp.Status)
-        return RangerError{ resp.Status, resp.StatusCode, errors.New("Expected " + strconv.Itoa(http.StatusOK)) }
-    }
+	// Only accepted status is 200, even if user already existed
+	if resp.StatusCode != http.StatusOK {
+		logger.Debug("Unexpected status code: ", resp.Status)
+		return RangerError{resp.Status, resp.StatusCode, errors.New("Expected " + strconv.Itoa(http.StatusOK))}
+	}
 
-    //
-    // Read/verify the returned body, even though we dont need it
-    //
-    if body, err := ioutil.ReadAll( resp.Body ); err != nil {
-        logger.Warn("Problem reading the result: ", err)
-    } else if err = json.Unmarshal( body, &uginfo ); err != nil {
-        logger.Warn("Problem unmarshaling the result: ", err)
-        logger.Debug("Result: ", string(body))
-    } else {
-        logger.Debug("Result: ", string(body))
-    }
+	//
+	// Read/verify the returned body, even though we dont need it
+	//
+	if body, err := ioutil.ReadAll(resp.Body); err != nil {
+		logger.Warn("Problem reading the result: ", err)
+	} else if err = json.Unmarshal(body, &uginfo); err != nil {
+		logger.Warn("Problem unmarshaling the result: ", err)
+		logger.Debug("Result: ", string(body))
+	} else {
+		logger.Debug("Result: ", string(body))
+	}
 
-    logger.Info("Created Ranger user info for: ", uginfo.XuserInfo.Name)
+	logger.Info("Created Ranger user info for: ", uginfo.XuserInfo.Name)
 
-    return RangerError{}
+	return RangerError{}
 }
 
-func DeleteUser( client *http.Client, id int ) RangerError {
-    logger.Info("Deleting Ranger group ", id)
+func DeleteUser(client *http.Client, id int, name string) RangerError {
+	logger.Info("Deleting Ranger user ", name)
 
-    url := config.Ranger.Host + config.Ranger.GroupsUri + strconv.Itoa( id )
+	// url := config.Ranger.Host + config.Ranger.GroupsUri + strconv.Itoa(id)
+	url := config.Ranger.Host + config.Ranger.DeleteUserUri + strconv.Itoa(id) + "?forceDelete=true"
 
-    logger.Debug("Request URL: ", url)
+	logger.Debug("Request URL: ", url)
 
-    // Create the GET request for the Ranger Groups API
-    req, err := http.NewRequest(http.MethodDelete, url, nil)
+	// Create the DELETE request for the Ranger Users API
+	req, err := http.NewRequest(http.MethodDelete, url, nil)
 
-    if err != nil {
-        logger.Debug("Problem creating the request: ", err)
-        return RangerError{ Err: err }
-    }
+	if err != nil {
+		logger.Debug("Problem creating the request: ", err)
+		return RangerError{Err: err}
+	}
 
-    // Add any user-supplied headers
-    for key, value := range config.Ranger.Headers {
-        req.Header.Set( key, value )
-    }
+	// Add any user-supplied headers
+	for key, value := range config.Ranger.Headers {
+		req.Header.Set(key, value)
+	}
 
-    logger.Debug("Request: ", req)
+	logger.Debug("Request: ", req)
 
-    // Check if authorization creds have been configured
-    if len(config.Ranger.User) != 0 && len(config.Ranger.Pass) != 0 {
-        // Need to add authorization
-        req.SetBasicAuth(config.Ranger.User, config.Ranger.Pass)
-    }
+	// Check if authorization creds have been configured
+	if len(config.Ranger.User) != 0 && len(config.Ranger.Pass) != 0 {
+		// Need to add authorization
+		req.SetBasicAuth(config.Ranger.User, config.Ranger.Pass)
+	}
 
-    // Execute the request
-    resp, err := client.Do(req)
+	// Execute the request
+	resp, err := client.Do(req)
 
-    if err != nil {
-        logger.Debug("Request returned an error: ", err)
-        return RangerError{ Err: err }
-    }
+	if err != nil {
+		logger.Debug("Request returned an error: ", err)
+		return RangerError{Err: err}
+	}
 
-    // Only accepted status is 204
-    if resp.StatusCode != http.StatusNoContent {
-        logger.Debug("Unexpected status code: ", resp.Status)
-        return RangerError{ resp.Status, resp.StatusCode, errors.New("Expected " + strconv.Itoa(http.StatusNoContent)) }
-    }
+	// Only accepted status is 204
+	if resp.StatusCode != http.StatusNoContent {
+		logger.Debug("Unexpected status code: ", resp.Status)
+		return RangerError{resp.Status, resp.StatusCode, errors.New("Expected " + strconv.Itoa(http.StatusNoContent))}
+	}
 
-    logger.Info("Deleted Ranger group", id)
+	logger.Info("Deleted Ranger user", name)
 
-    return RangerError{}
+	return RangerError{}
 }
 
-func GetGroups( client *http.Client ) (VXGroups,RangerError) {
-    logger.Info("Fetching Ranger groups")
+func GetGroups(client *http.Client) (VXGroups, RangerError) {
+	logger.Info("Fetching Ranger groups")
 
-    url := config.Ranger.Host + config.Ranger.GroupsUri
+	url := config.Ranger.Host + config.Ranger.GroupsUri
 
-    logger.Debug("Request URL: ", url)
+	logger.Debug("Request URL: ", url)
 
-    // Create the GET request for the Ranger Groups API
-    req, err := http.NewRequest(http.MethodGet, url, nil)
+	// Create the GET request for the Ranger Groups API
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 
-    if err != nil {
-        logger.Debug("Problem creating the request: ", err)
-        return VXGroups{}, RangerError{ Err: err }
-    }
+	if err != nil {
+		logger.Debug("Problem creating the request: ", err)
+		return VXGroups{}, RangerError{Err: err}
+	}
 
-    // Add any user-supplied headers
-    for key, value := range config.Ranger.Headers {
-        req.Header.Set( key, value )
-    }
+	// Add any user-supplied headers
+	for key, value := range config.Ranger.Headers {
+		req.Header.Set(key, value)
+	}
 
-    // Work with JSON, Ranger API defaults to XML
-    req.Header.Set("Accept", "application/json")
+	// Work with JSON, Ranger API defaults to XML
+	req.Header.Set("Accept", "application/json")
 
-    logger.Debug("Request: ", req)
+	logger.Debug("Request: ", req)
 
-    // Check if authorization creds have been configured
-    if len(config.Ranger.User) != 0 && len(config.Ranger.Pass) != 0 {
-        // Need to add authorization
-        req.SetBasicAuth(config.Ranger.User, config.Ranger.Pass)
-    }
+	// Check if authorization creds have been configured
+	if len(config.Ranger.User) != 0 && len(config.Ranger.Pass) != 0 {
+		// Need to add authorization
+		req.SetBasicAuth(config.Ranger.User, config.Ranger.Pass)
+	}
 
-    // Execute the request
-    resp, err := client.Do(req)
+	// Execute the request
+	resp, err := client.Do(req)
 
-    if err != nil {
-        logger.Debug("Request returned an error: ", err)
-        return VXGroups{}, RangerError{ Err: err }
-    }
+	if err != nil {
+		logger.Debug("Request returned an error: ", err)
+		return VXGroups{}, RangerError{Err: err}
+	}
 
-    defer func( Body io.ReadCloser ) {
-        err := Body.Close()
-        if err != nil {
-            logger.Warn("Problem closing result reader: ", err)
-        }
-    } ( resp.Body );
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			logger.Warn("Problem closing result reader: ", err)
+		}
+	}(resp.Body)
 
-    // Only accepted status is 200, even if user already existed
-    if resp.StatusCode != http.StatusOK {
-        logger.Debug("Unexpected status code: ", resp.Status)
-        return VXGroups{}, RangerError{ resp.Status, resp.StatusCode, errors.New("Expected " + strconv.Itoa(http.StatusOK)) }
-    }
+	// Only accepted status is 200, even if user already existed
+	if resp.StatusCode != http.StatusOK {
+		logger.Debug("Unexpected status code: ", resp.Status)
+		return VXGroups{}, RangerError{resp.Status, resp.StatusCode, errors.New("Expected " + strconv.Itoa(http.StatusOK))}
+	}
 
-    //
-    // Read/verify the returned body
-    //
-    info := VXGroups{}
+	//
+	// Read/verify the returned body
+	//
+	info := VXGroups{}
 
-    if body, err := ioutil.ReadAll( resp.Body ); err != nil {
-        logger.Warn("Problem reading the result: ", err)
-    } else if err = json.Unmarshal( body, &info ); err != nil {
-        logger.Warn("Problem unmarshaling the result: ", err)
-        logger.Debug("Result: ", string(body))
-    } else {
-        logger.Debug("Result: ", string(body))
-    }
+	if body, err := ioutil.ReadAll(resp.Body); err != nil {
+		logger.Warn("Problem reading the result: ", err)
+	} else if err = json.Unmarshal(body, &info); err != nil {
+		logger.Warn("Problem unmarshaling the result: ", err)
+		logger.Debug("Result: ", string(body))
+	} else {
+		logger.Debug("Result: ", string(body))
+	}
 
-    if len(info.VXGroups) == 0 {
-        logger.Warn("Fetched 0 Ranger groups")
-    } else {
-        count := 0
+	if len(info.VXGroups) == 0 {
+		logger.Warn("Fetched 0 Ranger groups")
+	} else {
+		count := 0
 
-        for _, group := range info.VXGroups {
-            if group.IsVisible != 0 && group.GroupSource == 1 {
-                count++
-            }
-        }
+		for _, group := range info.VXGroups {
+			if group.IsVisible != 0 && group.GroupSource == 1 {
+				count++
+			}
+		}
 
-        logger.Info("Fetched ", count, " Ranger groups")
-    }
+		logger.Info("Fetched ", count, " Ranger groups")
+	}
 
-    return info, RangerError{}
+	return info, RangerError{}
 }
 
-func DeleteGroup( client *http.Client, id int, name string ) RangerError {
-    logger.Info("Deleting Ranger group ", name)
+func DeleteGroup(client *http.Client, id int, name string) RangerError {
+	logger.Info("Deleting Ranger group ", name)
 
-    url := config.Ranger.Host + config.Ranger.GroupDeleteUri + strconv.Itoa( id ) + "?forceDelete=true"
+	url := config.Ranger.Host + config.Ranger.GroupDeleteUri + strconv.Itoa(id) + "?forceDelete=true"
 
-    logger.Debug("Request URL: ", url)
+	logger.Debug("Request URL: ", url)
 
-    // Create the GET request for the Ranger Groups API
-    req, err := http.NewRequest(http.MethodDelete, url, nil)
+	// Create the GET request for the Ranger Groups API
+	req, err := http.NewRequest(http.MethodDelete, url, nil)
 
-    if err != nil {
-        logger.Debug("Problem creating the request: ", err)
-        return RangerError{ Err: err }
-    }
+	if err != nil {
+		logger.Debug("Problem creating the request: ", err)
+		return RangerError{Err: err}
+	}
 
-    // Add any user-supplied headers
-    for key, value := range config.Ranger.Headers {
-        req.Header.Set( key, value )
-    }
+	// Add any user-supplied headers
+	for key, value := range config.Ranger.Headers {
+		req.Header.Set(key, value)
+	}
 
-    logger.Debug("Request: ", req)
+	logger.Debug("Request: ", req)
 
-    // Check if authorization creds have been configured
-    if len(config.Ranger.User) != 0 && len(config.Ranger.Pass) != 0 {
-        // Need to add authorization
-        req.SetBasicAuth(config.Ranger.User, config.Ranger.Pass)
-    }
+	// Check if authorization creds have been configured
+	if len(config.Ranger.User) != 0 && len(config.Ranger.Pass) != 0 {
+		// Need to add authorization
+		req.SetBasicAuth(config.Ranger.User, config.Ranger.Pass)
+	}
 
-    // Execute the request
-    resp, err := client.Do(req)
+	// Execute the request
+	resp, err := client.Do(req)
 
-    if err != nil {
-        logger.Debug("Request returned an error: ", err)
-        return RangerError{ Err: err }
-    }
+	if err != nil {
+		logger.Debug("Request returned an error: ", err)
+		return RangerError{Err: err}
+	}
 
-    // Only accepted status is 204
-    if resp.StatusCode != http.StatusNoContent {
-        logger.Debug("Unexpected status code: ", resp.Status)
-        return RangerError{ resp.Status, resp.StatusCode, errors.New("Expected " + strconv.Itoa(http.StatusNoContent)) }
-    }
+	// Only accepted status is 204
+	if resp.StatusCode != http.StatusNoContent {
+		logger.Debug("Unexpected status code: ", resp.Status)
+		return RangerError{resp.Status, resp.StatusCode, errors.New("Expected " + strconv.Itoa(http.StatusNoContent))}
+	}
 
-    logger.Info("Deleted Ranger group ", name)
+	logger.Info("Deleted Ranger group ", name)
 
-    return RangerError{}
+	return RangerError{}
 }
 
-func GetGroupUsers( client *http.Client, name string ) (VXGroupUserInfo,RangerError) {
+func GetGroupUsers(client *http.Client, name string) (VXGroupUserInfo, RangerError) {
 
-    logger.Info("Fetching Ranger group users for group: ", name)
+	logger.Info("Fetching Ranger group users for group: ", name)
 
-    // URLencoded the user value
-    url := config.Ranger.Host + config.Ranger.GroupUsersUri + name
+	// URLencoded the user value
+	url := config.Ranger.Host + config.Ranger.GroupUsersUri + name
 
-    logger.Debug("Request URL: ", url)
+	logger.Debug("Request URL: ", url)
 
-    // Create the GET request for the Ranger GroupUsers API
-    req, err := http.NewRequest(http.MethodGet, url, nil)
+	// Create the GET request for the Ranger GroupUsers API
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 
-    if err != nil {
-        logger.Debug("Problem creating the request: ", err)
-        return VXGroupUserInfo{}, RangerError{ Err: err }
-    }
+	if err != nil {
+		logger.Debug("Problem creating the request: ", err)
+		return VXGroupUserInfo{}, RangerError{Err: err}
+	}
 
-    // Add any user-supplied headers
-    for key, value := range config.Ranger.Headers {
-        req.Header.Set( key, value )
-    }
+	// Add any user-supplied headers
+	for key, value := range config.Ranger.Headers {
+		req.Header.Set(key, value)
+	}
 
-    // Work with JSON, Ranger API defaults to XML
-    req.Header.Set("Accept", "application/json")
+	// Work with JSON, Ranger API defaults to XML
+	req.Header.Set("Accept", "application/json")
 
-    logger.Debug("Request: ", req)
+	logger.Debug("Request: ", req)
 
-    // Check if authorization creds have been configured
-    if len(config.Ranger.User) != 0 && len(config.Ranger.Pass) != 0 {
-        // Need to add authorization
-        req.SetBasicAuth(config.Ranger.User, config.Ranger.Pass)
-    }
+	// Check if authorization creds have been configured
+	if len(config.Ranger.User) != 0 && len(config.Ranger.Pass) != 0 {
+		// Need to add authorization
+		req.SetBasicAuth(config.Ranger.User, config.Ranger.Pass)
+	}
 
-    // Execute the request
-    resp, err := client.Do(req)
+	// Execute the request
+	resp, err := client.Do(req)
 
-    if err != nil {
-        logger.Debug("Request returned an error: ", err)
-        return VXGroupUserInfo{}, RangerError{ Err: err }
-    }
+	if err != nil {
+		logger.Debug("Request returned an error: ", err)
+		return VXGroupUserInfo{}, RangerError{Err: err}
+	}
 
-    defer func( Body io.ReadCloser ) {
-        err := Body.Close()
-        if err != nil {
-            logger.Warn("Problem closing result reader: ", err)
-        }
-    } ( resp.Body );
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			logger.Warn("Problem closing result reader: ", err)
+		}
+	}(resp.Body)
 
-    // Only accepted status is 200, even if user already existed
-    if resp.StatusCode != http.StatusOK {
-        logger.Debug("Unexpected status code: ", resp.Status)
-        return VXGroupUserInfo{}, RangerError{ resp.Status, resp.StatusCode, errors.New("Expected " + strconv.Itoa(http.StatusOK)) }
-    }
+	// Only accepted status is 200, even if user already existed
+	if resp.StatusCode != http.StatusOK {
+		logger.Debug("Unexpected status code: ", resp.Status)
+		return VXGroupUserInfo{}, RangerError{resp.Status, resp.StatusCode, errors.New("Expected " + strconv.Itoa(http.StatusOK))}
+	}
 
-    //
-    // Read/verify the returned body
-    //
-    info := VXGroupUserInfo{}
+	//
+	// Read/verify the returned body
+	//
+	info := VXGroupUserInfo{}
 
-    if body, err := ioutil.ReadAll( resp.Body ); err != nil {
-        logger.Warn("Problem reading the result: ", err)
-    } else if err = json.Unmarshal( body, &info ); err != nil {
-        logger.Warn("Problem unmarshaling the result: ", err)
-        logger.Debug("Result: ", string(body))
-    } else {
-        logger.Debug("Result: ", string(body))
-    }
+	if body, err := ioutil.ReadAll(resp.Body); err != nil {
+		logger.Warn("Problem reading the result: ", err)
+	} else if err = json.Unmarshal(body, &info); err != nil {
+		logger.Warn("Problem unmarshaling the result: ", err)
+		logger.Debug("Result: ", string(body))
+	} else {
+		logger.Debug("Result: ", string(body))
+	}
 
-    if len(info.XuserInfo) == 0 {
-        logger.Warn("Fetched 0 Ranger group users for: ", name)
-    } else {
-        logger.Info("Fetched ", len(info.XuserInfo), " Ranger group users for: ", name)
-    }
+	if len(info.XuserInfo) == 0 {
+		logger.Warn("Fetched 0 Ranger group users for: ", name)
+	} else {
+		logger.Info("Fetched ", len(info.XuserInfo), " Ranger group users for: ", name)
+	}
 
-    return info, RangerError{}
+	return info, RangerError{}
 }
 
-func DeleteGroupUser( client *http.Client, group string, user string ) RangerError {
+func GetAllUsers(client *http.Client) (map[string]int, RangerError) {
+	var rangerUsers = make(map[string]int)
+	var startIndex int = 0
+	var totalCount int
 
-    logger.Info("Deleting Ranger group user for group: ", group, " name: ", user)
-
-    // URLencoded the user value
-    url := config.Ranger.Host + config.Ranger.GroupUserUri + group + "/user/" + url.QueryEscape(user)
-
-    logger.Debug("Request URL: ", url)
-
-    // Create the DELETE request for the Ranger GroupUser API
-    req, err := http.NewRequest(http.MethodDelete, url, nil)
-
-    if err != nil {
-        logger.Debug("Problem creating the request: ", err)
-        return RangerError{ Err: err }
-    }
-
-    // Add any user-supplied headers
-    for key, value := range config.Ranger.Headers {
-        req.Header.Set( key, value )
-    }
-
-    // Work with JSON, Ranger API defaults to XML
-    req.Header.Set("Accept", "application/json")
-
-    logger.Debug("Request: ", req)
-
-    // Check if authorization creds have been configured
-    if len(config.Ranger.User) != 0 && len(config.Ranger.Pass) != 0 {
-        // Need to add authorization
-        req.SetBasicAuth(config.Ranger.User, config.Ranger.Pass)
-    }
-
-    // Execute the request
-    resp, err := client.Do(req)
-
-    if err != nil {
-        logger.Debug("Request returned an error: ", err)
-        return RangerError{ Err: err }
-    }
-
-    defer func( Body io.ReadCloser ) {
-        err := Body.Close()
-        if err != nil {
-            logger.Warn("Problem closing result reader: ", err)
-        }
-    } ( resp.Body );
-
-    // Only accepted status is 204
-    if resp.StatusCode != http.StatusNoContent {
-        logger.Debug("Unexpected status code: ", resp.Status)
-        return RangerError{ resp.Status, resp.StatusCode, errors.New("Expected " + strconv.Itoa(http.StatusNoContent)) }
-    }
-
-    logger.Info("Deleted Ranger group user for group; ", group, " name: ", user)
-
-    return RangerError{}
+	for moreusers := true; moreusers; moreusers = (startIndex < totalCount) {
+		logger.Info("Fetching all Ranger users, Next start index: ", startIndex)
+		if us, err := GetUsers(client, startIndex); !err.Ok() {
+			return rangerUsers, RangerError{Err: errors.New("Cannot fetch users from Ranger: " + err.Error())}
+		} else {
+			for _, user := range us.VXUsers {
+				// Only track external users...which is UserSource = 1
+				if user.UserSource == 1 {
+					// Need the name -> id mapping for possible deletion later
+					rangerUsers[user.Name] = user.Id
+				}
+			}
+			logger.Debug(us.TotalCount, " total users found in Ranger, adding user ", us.StartIndex, " to ", us.PageSize)
+			startIndex = us.StartIndex + us.PageSize
+			totalCount = us.TotalCount
+		}
+	}
+	return rangerUsers, RangerError{}
 }
 
-func CreateGroupInfo( client *http.Client, guinfo VXGroupUserInfo ) RangerError {
+func GetUsers(client *http.Client, startIndex int) (VXUsers, RangerError) {
+	logger.Info("Fetching Ranger users")
 
-    logger.Info("Creating Ranger group info for group: ", guinfo.XgroupInfo.Name)
+	url := config.Ranger.Host + config.Ranger.DeleteUserUri + "?startIndex=" + strconv.Itoa(startIndex)
 
-    // Marshal the JSON for the user info
-    info, err := json.Marshal( guinfo )
+	logger.Debug("Request URL: ", url)
 
-    if err != nil {
-        logger.Debug("Problem marshaling the object: ", err)
-        return RangerError{ Err: err }
-    }
+	// Create the GET request for the Ranger Groups API
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 
-    url := config.Ranger.Host + config.Ranger.GroupInfoUri
+	if err != nil {
+		logger.Debug("Problem creating the request: ", err)
+		return VXUsers{}, RangerError{Err: err}
+	}
 
-    logger.Debug("Request URL: ", url)
-    logger.Debug("Request Body: ", string(info))
+	// Add any user-supplied headers
+	for key, value := range config.Ranger.Headers {
+		req.Header.Set(key, value)
+	}
 
-    // Create the POST request for the Ranger create API
-    req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(info))
+	// Work with JSON, Ranger API defaults to XML
+	req.Header.Set("Accept", "application/json")
 
-    if err != nil {
-        logger.Debug("Problem creating the request: ", err)
-        return RangerError{ Err: err }
-    }
+	logger.Debug("Request: ", req)
 
-    // Add any user-supplied headers
-    for key, value := range config.Ranger.Headers {
-        req.Header.Set( key, value )
-    }
+	// Check if authorization creds have been configured
+	if len(config.Ranger.User) != 0 && len(config.Ranger.Pass) != 0 {
+		// Need to add authorization
+		req.SetBasicAuth(config.Ranger.User, config.Ranger.Pass)
+	}
 
-    // Work with JSON, Ranger API defaults to XML
-    req.Header.Set("Content-Type", "application/json")
-    req.Header.Set("Accept", "application/json")
+	// Execute the request
+	resp, err := client.Do(req)
 
-    logger.Debug("Request: ", req)
+	if err != nil {
+		logger.Debug("Request returned an error: ", err)
+		return VXUsers{}, RangerError{Err: err}
+	}
 
-    // Check if authorization creds have been configured
-    if len(config.Ranger.User) != 0 && len(config.Ranger.Pass) != 0 {
-        // Need to add authorization
-        req.SetBasicAuth(config.Ranger.User, config.Ranger.Pass)
-    }
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			logger.Warn("Problem closing result reader: ", err)
+		}
+	}(resp.Body)
 
-    // Execute the request
-    resp, err := client.Do(req)
+	// Only accepted status is 200, even if user already existed
+	if resp.StatusCode != http.StatusOK {
+		logger.Debug("Unexpected status code: ", resp.Status)
+		return VXUsers{}, RangerError{resp.Status, resp.StatusCode, errors.New("Expected " + strconv.Itoa(http.StatusOK))}
+	}
 
-    if err != nil {
-        logger.Debug("Request returned an error: ", err)
-        return RangerError{ Err: err }
-    }
+	//
+	// Read/verify the returned body
+	//
+	info := VXUsers{}
 
-    defer func( Body io.ReadCloser ) {
-        err := Body.Close()
-        if err != nil {
-            logger.Warn("Problem closing result reader: ", err)
-        }
-    } ( resp.Body );
+	if body, err := ioutil.ReadAll(resp.Body); err != nil {
+		logger.Warn("Problem reading the result: ", err)
+	} else if err = json.Unmarshal(body, &info); err != nil {
+		logger.Warn("Problem unmarshaling the result: ", err)
+		logger.Debug("Result: ", string(body))
+	} else {
+		logger.Debug("Result: ", string(body))
+	}
 
-    // Only accepted status is 200, even if user already existed
-    if resp.StatusCode != http.StatusOK {
-        logger.Debug("Unexpected status code: ", resp.Status)
-        return RangerError{ resp.Status, resp.StatusCode, errors.New("Expected " + strconv.Itoa(http.StatusOK)) }
-    }
+	if len(info.VXUsers) == 0 {
+		logger.Warn("Fetched 0 Ranger users")
+	} else {
+		count := 0
 
-    //
-    // Read/verify the returned body, even though we dont need it
-    //
-    if body, err := ioutil.ReadAll( resp.Body ); err != nil {
-        logger.Warn("Problem reading the result: ", err)
-    } else if err = json.Unmarshal( body, &guinfo ); err != nil {
-        logger.Warn("Problem unmarshaling the result: ", err)
-        logger.Debug("Result: ", string(body))
-    } else {
-        logger.Debug("Result: ", string(body))
-    }
+		for _, user := range info.VXUsers {
+			if user.IsVisible != 0 && user.UserSource == 1 {
+				count++
+			}
+		}
 
-    logger.Info("Created Ranger group info for: ", guinfo.XgroupInfo.Name)
+		logger.Info("Fetched ", count, " external Ranger users")
+	}
 
-    return RangerError{}
+	return info, RangerError{}
 }
 
+func DeleteGroupUser(client *http.Client, group string, user string) RangerError {
+
+	logger.Info("Deleting Ranger group user for group: ", group, " name: ", user)
+
+	// URLencoded the user value
+	url := config.Ranger.Host + config.Ranger.GroupUserUri + group + "/user/" + url.QueryEscape(user)
+
+	logger.Debug("Request URL: ", url)
+
+	// Create the DELETE request for the Ranger GroupUser API
+	req, err := http.NewRequest(http.MethodDelete, url, nil)
+
+	if err != nil {
+		logger.Debug("Problem creating the request: ", err)
+		return RangerError{Err: err}
+	}
+
+	// Add any user-supplied headers
+	for key, value := range config.Ranger.Headers {
+		req.Header.Set(key, value)
+	}
+
+	// Work with JSON, Ranger API defaults to XML
+	req.Header.Set("Accept", "application/json")
+
+	logger.Debug("Request: ", req)
+
+	// Check if authorization creds have been configured
+	if len(config.Ranger.User) != 0 && len(config.Ranger.Pass) != 0 {
+		// Need to add authorization
+		req.SetBasicAuth(config.Ranger.User, config.Ranger.Pass)
+	}
+
+	// Execute the request
+	resp, err := client.Do(req)
+
+	if err != nil {
+		logger.Debug("Request returned an error: ", err)
+		return RangerError{Err: err}
+	}
+
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			logger.Warn("Problem closing result reader: ", err)
+		}
+	}(resp.Body)
+
+	// Only accepted status is 204
+	if resp.StatusCode != http.StatusNoContent {
+		logger.Debug("Unexpected status code: ", resp.Status)
+		return RangerError{resp.Status, resp.StatusCode, errors.New("Expected " + strconv.Itoa(http.StatusNoContent))}
+	}
+
+	logger.Info("Deleted Ranger group user for group; ", group, " name: ", user)
+
+	return RangerError{}
+}
+
+func CreateGroupInfo(client *http.Client, guinfo VXGroupUserInfo) RangerError {
+
+	logger.Info("Creating Ranger group info for group: ", guinfo.XgroupInfo.Name)
+
+	// Marshal the JSON for the user info
+	info, err := json.Marshal(guinfo)
+
+	if err != nil {
+		logger.Debug("Problem marshaling the object: ", err)
+		return RangerError{Err: err}
+	}
+
+	url := config.Ranger.Host + config.Ranger.GroupInfoUri
+
+	logger.Debug("Request URL: ", url)
+	logger.Debug("Request Body: ", string(info))
+
+	// Create the POST request for the Ranger create API
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(info))
+
+	if err != nil {
+		logger.Debug("Problem creating the request: ", err)
+		return RangerError{Err: err}
+	}
+
+	// Add any user-supplied headers
+	for key, value := range config.Ranger.Headers {
+		req.Header.Set(key, value)
+	}
+
+	// Work with JSON, Ranger API defaults to XML
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	logger.Debug("Request: ", req)
+
+	// Check if authorization creds have been configured
+	if len(config.Ranger.User) != 0 && len(config.Ranger.Pass) != 0 {
+		// Need to add authorization
+		req.SetBasicAuth(config.Ranger.User, config.Ranger.Pass)
+	}
+
+	// Execute the request
+	resp, err := client.Do(req)
+
+	if err != nil {
+		logger.Debug("Request returned an error: ", err)
+		return RangerError{Err: err}
+	}
+
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			logger.Warn("Problem closing result reader: ", err)
+		}
+	}(resp.Body)
+
+	// Only accepted status is 200, even if user already existed
+	if resp.StatusCode != http.StatusOK {
+		logger.Debug("Unexpected status code: ", resp.Status)
+		return RangerError{resp.Status, resp.StatusCode, errors.New("Expected " + strconv.Itoa(http.StatusOK))}
+	}
+
+	//
+	// Read/verify the returned body, even though we dont need it
+	//
+	if body, err := ioutil.ReadAll(resp.Body); err != nil {
+		logger.Warn("Problem reading the result: ", err)
+	} else if err = json.Unmarshal(body, &guinfo); err != nil {
+		logger.Warn("Problem unmarshaling the result: ", err)
+		logger.Debug("Result: ", string(body))
+	} else {
+		logger.Debug("Result: ", string(body))
+	}
+
+	logger.Info("Created Ranger group info for: ", guinfo.XgroupInfo.Name)
+
+	return RangerError{}
+}

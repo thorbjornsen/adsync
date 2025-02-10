@@ -80,6 +80,9 @@ type Adsync struct {
 	// Used to track existing Ranger groups
 	rangerGroups map[string]int
 
+	//Used to track existing Ranger users
+	rangerUsers map[string]int
+
 	// Used to cache the groups that have already been created
 	createdGroups map[string]int
 
@@ -107,6 +110,22 @@ func (a *Adsync) getRangerGroups() AdsyncError {
 				a.rangerGroups[group.Name] = group.Id
 			}
 		}
+	}
+
+	return AdsyncError{}
+}
+
+func (a *Adsync) getRangerUsers() AdsyncError {
+	// Clear any existing groups/init the map
+	a.rangerUsers = make(map[string]int)
+	//
+	// Get the groups currently in Ranger, to see which ones might have been deleted from Azure
+	//
+	if users, err := GetAllUsers(a.client); !err.Ok() {
+		return AdsyncError{Err: errors.New("Cannot fetch users from Ranger: " + err.Error())}
+	} else {
+		a.rangerUsers = users
+
 	}
 
 	return AdsyncError{}
@@ -354,6 +373,9 @@ func (a *Adsync) processAzureGroup(group AzureGroup, members []AzureGroupMembers
 				if err := DeleteGroupUser(a.client, group.DisplayName, user.Name); !err.Ok() {
 					logger.Error("Problem deleting group user: ", err)
 				}
+			} else {
+				logger.Debug("User ", user.Name, " found in group, removing from list of users to delete")
+				delete(a.rangerUsers, user.Name)
 			}
 		}
 	}
@@ -378,6 +400,11 @@ func (a *Adsync) groupUserSync() {
 		return
 	}
 
+	//Get the users currently in Ranger, to see which ones have been deleted from Azure
+	if err := a.getRangerUsers(); !err.Ok() {
+		logger.Error(err)
+		return
+	}
 	// Get the top level groups currently in Azure
 	if err := a.getAzureGroups(); !err.Ok() {
 		logger.Error(err)
@@ -481,6 +508,7 @@ func (a *Adsync) groupUserSync() {
 			return
 		}
 	}
+	logger.Debug(len(a.rangerUsers), " Ranger users were part of no group and will be removed")
 	//
 	// Create file for group provider, if requested
 	//
@@ -521,6 +549,15 @@ func (a *Adsync) groupUserSync() {
 
 		if err := DeleteGroup(a.client, id, name); !err.Ok() {
 			logger.Error("Problem deleting group: ", err)
+		}
+	}
+	//
+	// Remove any users in Ranger that weren't part of any Azure group
+	//
+	for name, id := range a.rangerUsers {
+		logger.Info("Removing user ", name, " from Ranger")
+		if err := DeleteUser(a.client, id, name); !err.Ok() {
+			logger.Error("Problem deleting user: ", err)
 		}
 	}
 
